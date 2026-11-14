@@ -1,6 +1,17 @@
-export const GAME_VERSION = '베타 0.13.0';
+export const GAME_VERSION = '베타 0.14.0';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.14.0',
+    date: '2026-11',
+    items: [
+      '선수 골 기록: 골을 넣은 선수에게 이번 시즌 골과 통산 골이 쌓이고, 카드에 ⚽ 숫자로 표시',
+      '경기 결과에 득점자 표시, 시즌이 끝나면 팀 득점왕 발표',
+      '배경음악: 새벽 운동장 분위기의 8비트 음악 (경기 중에는 관중 함성이 들리게 작아짐)',
+      '진동: 골, 희귀 선수 발견, 승격 때 짧게 (안드로이드 휴대폰)',
+      '설정에서 소리 전체, 배경음악, 진동을 따로 켜고 끌 수 있음',
+    ],
+  },
   {
     version: '베타 0.13.0',
     date: '2026-11',

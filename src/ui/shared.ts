@@ -4,7 +4,7 @@ import type { OfflineReport } from '../game/game';
 import { type MatchSummary, deserialize, serialize } from '../game/state';
 import { DAILY_BONUS, DAILY_MISSIONS } from '../data/missions';
 import { GAME_VERSION, PATCH_NOTES } from '../data/version';
-import { sfx } from './sound';
+import { sfx, updateMusic } from './sound';
 import { resumePending } from './screens/match';
 import { BM_ACTIONS, openOffer } from './bm';
 import type { ActionHandler, App } from './app';
@@ -97,6 +97,7 @@ export function openSeasonEnd(app: App, s: MatchSummary): void {
       ${e.promoted
         ? `<p><b>${tierBadge(e.level)}로 승격!</b><br>더 강한 상대와 더 많은 수입이 기다립니다.</p><div class="rewards" style="justify-content:center">${rewardChips(e.reward ?? {})}</div>`
         : `<p>1위를 해야 승격할 수 있어요.<br>같은 리그에서 새 시즌을 시작합니다.</p><p class="muted">💡 스카우트 레벨을 올리고 더 좋은 선수를 영입하세요.</p>`}
+      ${e.topScorer ? `<div class="top-scorer">👑 시즌 팀 득점왕 <b>${esc(e.topScorer.name)}</b> ${e.topScorer.goals}골</div>` : ''}
       <p></p><button class="btn block" data-act="close">계속하기</button></div>`,
   });
 }
@@ -169,7 +170,11 @@ function openSettings(app: App): void {
         <div class="muted">경기 ${app.state.stats.matches} · 승 ${app.state.stats.wins} · 승격 ${app.state.stats.promotions}</div>
         <div class="muted">스카우트 ${app.state.scoutCount}명</div>
       </div>
-      <div class="panel"><div class="row-between"><h3 style="margin:0">🔊 효과음</h3><button class="btn small ${app.state.settings.sound ? 'green' : 'gray'}" data-act="toggle-sound">${app.state.settings.sound ? '켜짐' : '꺼짐'}</button></div></div>
+      <div class="panel settings-toggles">
+        <div class="row-between"><h3 style="margin:0">🔊 소리 전체</h3><button class="btn small ${app.state.settings.sound ? 'green' : 'gray'}" data-act="toggle-sound">${app.state.settings.sound ? '켜짐' : '꺼짐'}</button></div>
+        <div class="row-between"><h3 style="margin:0">🎵 배경음악</h3><button class="btn small ${app.state.settings.music !== false ? 'green' : 'gray'}" data-act="toggle-music">${app.state.settings.music !== false ? '켜짐' : '꺼짐'}</button></div>
+        <div class="row-between"><h3 style="margin:0">📳 진동</h3><button class="btn small ${app.state.settings.vibrate !== false ? 'green' : 'gray'}" data-act="toggle-vibrate">${app.state.settings.vibrate !== false ? '켜짐' : '꺼짐'}</button></div>
+      </div>
       <div class="panel"><div class="row-between"><h3 style="margin:0">☁️ 계정 저장</h3>${
         app.cloud.status === 'on' ? '<b style="color:var(--green)">켜짐</b>'
         : app.cloud.status === 'unavailable' ? '<span class="muted">이 화면에선 안 돼요</span>'
@@ -283,6 +288,16 @@ export const SHARED_ACTIONS: Record<string, ActionHandler> = {
   },
   'toggle-sound'(app) {
     app.state.settings.sound = !app.state.settings.sound;
+    updateMusic();
+    app.renderModal(true);
+  },
+  'toggle-music'(app) {
+    app.state.settings.music = app.state.settings.music === false;
+    updateMusic();
+    app.renderModal(true);
+  },
+  'toggle-vibrate'(app) {
+    app.state.settings.vibrate = app.state.settings.vibrate === false;
     app.renderModal(true);
   },
   'export-save'(app) {

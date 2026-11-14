@@ -7,7 +7,7 @@ import type { ActionHandler, App } from '../app';
 import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../cards';
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
 import { confetti } from '../effects';
-import { setCrowd, sfx } from '../sound';
+import { duckMusic, setCrowd, sfx } from '../sound';
 import { openOffer, renderQuickBar, renderStadiumUpgrade, renderTraining } from '../bm';
 import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } from '../shared';
 import { STYLES, type TacticStyle } from '../../game/match';
@@ -167,8 +167,16 @@ function renderBanner(now: number): string {
     <div class="ft-title">FULL-TIME</div>
     <div class="big" style="color:${color}">${s.myScore[0]} - ${s.myScore[1]} ${label} <span class="ft-cash">💵 +${fmt(s.cash)}</span></div>
     <div class="muted" style="color:#cfd6e4">vs ${esc(s.opponentName)}</div>
+    ${s.scorers?.length ? `<div class="ft-scorers">⚽ ${scorerLine(s.scorers)}</div>` : ''}
     <ul>${s.reasons.slice(0, 3).map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
   </div>`;
+}
+
+/** ['김', '이', '김'] → '김 2 · 이' */
+function scorerLine(names: string[]): string {
+  const count = new Map<string, number>();
+  for (const n of names) count.set(n, (count.get(n) ?? 0) + 1);
+  return [...count].map(([n, c]) => `${esc(n)}${c > 1 ? ` ${c}` : ''}`).join(' · ');
 }
 
 export function mounted(app: App): void {
@@ -182,6 +190,8 @@ export function tick(app: App, now: number): void {
   const m = s.match;
   // 경기 중일 때만 관중 함성
   setCrowd(m ? Math.max(0.15, TIERS[s.league.level].crowd) : 0, app.pitch.excitement());
+  // 경기 중에는 함성이 들리게 음악을 줄인다
+  duckMusic(m ? 0.4 : 1);
   const clock = app.root.querySelector('#clock');
   const score = app.root.querySelector('#score');
   const comm = app.root.querySelector('#commentary');
@@ -363,9 +373,15 @@ function renderPlayer(app: App, slot: number): string {
   const p = app.state.squad[slot];
   return `<h2>${FORMATION[slot]} 주전</h2>
     <div class="cmp">${playerCard(p, { big: true })}<div>${playerInfo(p)}${summaryStats(p)}</div></div>
+    <div class="goal-record"><span>⚽ 이번 시즌 <b>${p.seasonGoals ?? 0}골</b></span><span>통산 <b>${p.goals ?? 0}골</b></span>${topScorerBadge(app, p)}</div>
     <div class="panel"><h3>전체 능력치</h3>${statBlock(p, undefined, true)}</div>
     ${renderTraining(app, slot)}
     <p class="muted" style="text-align:center">더 좋은 ${FORMATION[slot]} 선수를 영입하면 교체돼요. 훈련 레벨은 그 선수에게만 남습니다.</p>`;
+}
+
+function topScorerBadge(app: App, p: Player): string {
+  const top = app.game.seasonTopScorer();
+  return top && top.name === p.name && top.goals > 0 ? '<span class="chip-top">👑 팀 득점 1위</span>' : '';
 }
 
 // ───────── 자동 스카우트 ─────────

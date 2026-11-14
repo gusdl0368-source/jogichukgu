@@ -29,7 +29,9 @@ export interface MatchSummary {
   outcome: 'win' | 'draw' | 'loss';
   reasons: string[];
   cash: number;
-  seasonEnd?: { rank: number; promoted: boolean; level: number; reward?: { cash: number; gems: number } };
+  /** 이 경기에서 골을 넣은 우리 선수 이름 (골 수만큼 반복) */
+  scorers?: string[];
+  seasonEnd?: { rank: number; promoted: boolean; level: number; reward?: { cash: number; gems: number }; topScorer?: { name: string; goals: number } };
   champion?: boolean;
 }
 
@@ -130,7 +132,7 @@ export interface GameState {
   style: TacticStyle;
   /** 다음에 깰 가이드 퀘스트 번호 */
   guideStep: number;
-  settings: { sound: boolean };
+  settings: { sound: boolean; music?: boolean; vibrate?: boolean };
   /** 7일 출석 */
   attendance: { day: number; lastKey: string; streak: number; total: number };
   /** 경기장 증축 레벨 */

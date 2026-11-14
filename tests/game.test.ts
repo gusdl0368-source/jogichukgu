@@ -335,6 +335,31 @@ describe('오프라인 진행', () => {
   });
 });
 
+describe('골 기록', () => {
+  it('우리 팀 골은 넣은 선수에게 쌓이고, 시즌이 끝나면 득점왕을 알려주고 시즌 골은 0으로', () => {
+    const g = newGame(7);
+    let t = T0;
+    let total = 0;
+    let named = 0;
+    let top: { name: string; goals: number } | undefined;
+    for (let i = 0; i < 18; i++) {
+      g.startMatch(t);
+      const s = g.finishMatch()!;
+      total += s.myScore[0];
+      named += s.scorers?.length ?? 0;
+      if (s.seasonEnd) top = s.seasonEnd.topScorer;
+      t += HOUR;
+    }
+    expect(named).toBe(total);
+    if (total > 0) {
+      expect(top).toBeDefined();
+      expect(top!.goals).toBeGreaterThan(0);
+    }
+    expect(g.state.squad.every((p) => (p.seasonGoals ?? 0) === 0)).toBe(true);
+    expect(g.state.squad.reduce((a, p) => a + (p.goals ?? 0), 0)).toBe(total);
+  });
+});
+
 describe('연구', () => {
   it('작전판이 모자라거나 연구 중이면 시작할 수 있는 연구가 없다고 알려준다 (탭 빨간 점)', () => {
     const g = newGame();

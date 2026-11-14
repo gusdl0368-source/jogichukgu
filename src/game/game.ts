@@ -346,10 +346,22 @@ export class Game {
     } else if (outcome === 'draw') s.draws++;
     else s.losses++;
 
+    // 골 넣은 우리 선수에게 기록을 남긴다
+    const meTeam = m.home ? 0 : 1;
+    const scorers: string[] = [];
+    for (const e of m.result.events) {
+      if (e.type !== 'goal' || e.team !== meTeam || e.slot === undefined) continue;
+      const p = this.state.squad[e.slot];
+      if (!p) continue;
+      p.goals = (p.goals ?? 0) + 1;
+      p.seasonGoals = (p.seasonGoals ?? 0) + 1;
+      scorers.push(p.name);
+    }
+
     // 원정 경기면 이유도 원정 입장에서 다시 써야 하므로, 홈 기준 이유는 홈일 때만 그대로 쓴다
     const reasons = m.home ? m.result.reasons : simulateReasonsAsAway(m, this);
 
-    const summary: MatchSummary = { opponentName: opp.name, score: m.result.score, myScore, outcome, reasons, cash };
+    const summary: MatchSummary = { opponentName: opp.name, score: m.result.score, myScore, outcome, reasons, cash, scorers };
     this.state.match = null;
     if (seasonOver(league)) summary.seasonEnd = this.endSeason();
     if (this.state.champion) summary.champion = true;
@@ -357,7 +369,22 @@ export class Game {
     return summary;
   }
 
+  /** 이번 시즌 우리 팀 최다 득점자. 골이 없으면 undefined */
+  seasonTopScorer(): { name: string; goals: number } | undefined {
+    let best: Player | undefined;
+    for (const p of this.state.squad) if ((p.seasonGoals ?? 0) > (best?.seasonGoals ?? 0)) best = p;
+    return best ? { name: best.name, goals: best.seasonGoals ?? 0 } : undefined;
+  }
+
   private endSeason(): NonNullable<MatchSummary['seasonEnd']> {
+    const r = this.endSeasonInner();
+    const top = this.seasonTopScorer();
+    if (top) r.topScorer = top;
+    for (const p of this.state.squad) p.seasonGoals = 0;
+    return r;
+  }
+
+  private endSeasonInner(): NonNullable<MatchSummary['seasonEnd']> {
     const league = this.state.league;
     const rank = myRank(league);
     const level = league.level;

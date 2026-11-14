@@ -4,7 +4,7 @@ import { loadLocal } from './storage';
 import { App } from './ui/app';
 import * as matchScreen from './ui/screens/match';
 import { connectCloud, openEnding, openOffline, openTutorial } from './ui/shared';
-import { setCrowd, setSoundEnabled } from './ui/sound';
+import { setCrowd, setMusicEnabled, setSoundEnabled, setVibrateEnabled, updateMusic } from './ui/sound';
 import { startupPopups } from './ui/bm';
 import { showTitle } from './ui/title';
 
@@ -15,6 +15,8 @@ game.tickResearch(now);
 const report = game.catchUp(now);
 
 setSoundEnabled(() => game.state.settings.sound);
+setMusicEnabled(() => game.state.settings.music !== false);
+setVibrateEnabled(() => game.state.settings.vibrate !== false);
 const app = new App(document.getElementById('app')!, game);
 app.render();
 app.save();
@@ -42,8 +44,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     app.save(true);
     setCrowd(0, 0);
+    updateMusic();
   }
   else {
+    updateMusic();
     // 돌아오면 그동안 끝난 경기를 처리
     const r = game.catchUp(Date.now());
     if (r.matches.length) {

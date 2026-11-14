@@ -8,7 +8,7 @@ import { BM_ACTIONS, kitColors, tickQuickBar } from './bm';
 import { setCurrentKit } from './avatar';
 import { teamKitFrom } from './pitch';
 import { BroadcastView } from './broadcast';
-import { setCrowd } from './sound';
+import { duckMusic, setCrowd } from './sound';
 import * as matchScreen from './screens/match';
 import * as storeScreen from './screens/store';
 import * as tacticsScreen from './screens/tactics';
@@ -296,7 +296,7 @@ export class App {
 
   handle(act: string, arg: string, el: HTMLElement): void {
     if (act === 'tab') {
-      if (arg !== 'match') setCrowd(0, 0);
+      if (arg !== 'match') { setCrowd(0, 0); duckMusic(1); }
       this.tab = arg as TabId;
       this.render();
       // 자동 스카우트가 다른 탭에 있을 때 찾아 둔 선수가 있으면 경기 탭에서 보여준다

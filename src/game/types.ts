@@ -42,6 +42,10 @@ export interface Player {
   trait?: string;
   /** 회비로 훈련한 횟수 (0~10). 레벨마다 모든 능력치 +1 */
   train?: number;
+  /** 우리 팀에서 넣은 골 (통산) */
+  goals?: number;
+  /** 이번 시즌 골 */
+  seasonGoals?: number;
   tier: number;
   stats: Stats;
   overall: number;
