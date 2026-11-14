@@ -1,8 +1,10 @@
 // 밸런스 시뮬레이터: 무과금 유저가 하루 몇 번 접속해서 플레이하면 며칠 만에 어디까지 가는지 본다.
-// 사용법: npm run sim -- [일수] [하루 접속 횟수] [접속당 분]
+// 사용법: npm run sim -- [일수] [하루 접속 횟수] [접속당 분] [시드]
+// 환경변수: SIM_NO_ADS=1 광고 안 봄, SIM_PASS=1 시즌 패스 구매, SIM_MEMBER=1 정회원 매주 구매
 
 import { TIERS } from '../src/data/balance';
 import { DAILY_MISSIONS } from '../src/data/missions';
+import { MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS } from '../src/data/shop';
 import { CAMPS } from '../src/data/training';
 import { Game } from '../src/game/game';
 import { myRank } from '../src/game/league';
@@ -24,6 +26,15 @@ function track(src: string, fn: () => void): void {
   income[src] = (income[src] ?? 0) + g.state.wallet.cash - before;
 }
 g.state.seenTutorial = true;
+const ADS = !process.env.SIM_NO_ADS;
+const PASS = !!process.env.SIM_PASS;
+const MEMBER = !!process.env.SIM_MEMBER;
+let paid = 0;
+let playedMin = 0;
+if (PASS) {
+  g.purchase(PASS_PRODUCT.id, START);
+  paid += PASS_PRODUCT.price;
+}
 
 function scoutAll(): void {
   // 자동 스카우트처럼: 좋으면 영입, 아니면 방출
@@ -72,19 +83,35 @@ function spend(now: number): void {
   }
   for (const m of DAILY_MISSIONS) g.claimMission(m.id);
   g.claimMissionBonus();
+  // 시즌 패스 보상 (무료 트랙은 누구나, 프리미엄은 샀을 때)
+  for (let i = 0; i < PASS_STEPS; i++) {
+    g.claimPass(i, false);
+    g.claimPass(i, true);
+  }
+  // 젬은 연락처로 바꾼다 (실제 유저도 병목인 스카우트에 쓴다)
+  while (g.buyGemItem('g_contacts')) {
+    // 젬 50 → 연락처 300
+  }
 }
 
 function daily(t: number): void {
   g.claimFreeGems();
+  if (MEMBER && !g.isMember(t)) {
+    g.purchase(MEMBERSHIP_PRODUCT.id, t);
+    paid += MEMBERSHIP_PRODUCT.price;
+  }
+  g.claimMembershipDaily(t);
   if (!process.env.SIM_NO_DAILYBM) {
     g.claimAttendance(t);
     g.spinWheel('free');
-    while (g.spinWheel('ad')) {}
+    while (ADS && g.spinWheel('ad')) {}
   }
-  for (const kind of ['cash', 'contacts', 'gems'] as const) while (g.watchAd(kind)) {}
-  while (g.watchAd('stadium')) {}
+  if (ADS) {
+    for (const kind of ['cash', 'contacts', 'gems'] as const) while (g.watchAd(kind)) {}
+    while (g.watchAd('stadium')) {}
+  }
   for (const c of CAMPS) {
-    g.watchCampAd(c.id);
+    if (ADS) g.watchCampAd(c.id);
     while (g.campEntriesLeft(c.id) > 0) {
       const next = g.campMaxPlayable(c.id);
       if (c.interactive) {
@@ -97,7 +124,7 @@ function daily(t: number): void {
       }
     }
   }
-  while (g.tournamentTicketsLeft() > 0 || g.watchTournamentAd()) {
+  while (g.tournamentTicketsLeft() > 0 || (ADS && g.watchTournamentAd())) {
     if (!g.challenge(4)) break;
   }
   g.claimTournamentReward();
@@ -115,7 +142,11 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
     g.ensureDaily(t);
     g.tickResearch(t);
     track('오프라인 경기', () => g.catchUp(t));
-    track('운동장', () => g.collectStadium(t));
+    track('운동장', () => {
+      const got = g.collectStadium(t);
+      // 오프라인 보상 2배 광고
+      if (ADS) g.doubleOffline(got);
+    });
     if (g.state.daily.key !== lastDay) {
       lastDay = g.state.daily.key;
       track('일일(광고/캠프/대회)', () => daily(t));
@@ -131,6 +162,7 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
       g.tickResearch(t);
     }
     spend(t);
+    playedMin += (t - sessionStart) / MIN;
     g.state.lastActive = t;
     if (g.state.champion && champDay < 0) champDay = day + 1;
   }
@@ -140,8 +172,9 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
   );
 }
 
-console.log(`무과금 시뮬레이션: 하루 ${SESSIONS}번 × ${SESSION_MIN}분 접속`);
+console.log(`시뮬레이션: 하루 ${SESSIONS}번 × ${SESSION_MIN}분 접속 · 광고 ${ADS ? '봄' : '안 봄'} · 패스 ${PASS ? '구매' : 'X'} · 정회원 ${MEMBER ? '매주' : 'X'}`);
 console.log(log.join('\n'));
 console.log(champDay > 0 ? `\n🏆 ${champDay}일째 슈퍼스타 리그 우승 (엔딩)` : `\n${DAYS}일 안에 엔딩 미도달`);
 console.log('회비 출처', Object.fromEntries(Object.entries(income).map(([k, v]) => [k, Math.round(v)])));
 console.log(`경기 ${g.state.stats.matches} · 스카우트 ${g.state.scoutCount}명`);
+console.log(`총 플레이 ${Math.round(playedMin / 60)}시간 · 결제 ₩${paid.toLocaleString('ko-KR')}`);
