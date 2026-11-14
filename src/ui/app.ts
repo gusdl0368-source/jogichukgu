@@ -118,7 +118,7 @@ export class App {
     const s = this.state;
     const w = s.wallet;
     return `<header class="topbar">
-      <div class="season">시즌 ${s.league.season} · ${Math.min(s.league.round + 1, 9)}주차<small>${esc(s.teamName)}</small></div>
+      <div class="season">시즌 ${s.league.season} · ${Math.min(s.league.round + 1, s.league.fixtures.length)}주차<small>${esc(s.teamName)}</small></div>
       <span class="chip" id="w-cash">💵 ${fmt(w.cash)}</span>
       <span class="chip" id="w-contacts">📞 ${fmt(w.contacts)}</span>
       <span class="chip" id="w-gems">💎 ${fmt(w.gems)}</span>

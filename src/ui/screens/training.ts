@@ -13,8 +13,7 @@ export function anyEntries(g: Game): boolean {
 }
 
 function maxPlayable(g: Game, id: CampId): number {
-  const camp = CAMPS.find((c) => c.id === id)!;
-  return Math.min(camp.maxDifficulty, g.state.training.cleared[id] + 1);
+  return g.campMaxPlayable(id);
 }
 
 export function render(app: App): string {

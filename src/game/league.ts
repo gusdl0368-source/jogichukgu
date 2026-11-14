@@ -1,6 +1,6 @@
 import { LEAGUE, TIERS } from '../data/balance';
 import { type Crest, randomCrest, randomTeamName } from '../data/teams';
-import { NO_MODS, quickResult, type TeamSide } from './match';
+import { type MatchMods, NO_MODS, quickResult, type TeamSide } from './match';
 import { generateSquad, teamPower } from './players';
 import { Rng } from './rng';
 import type { Player } from './types';
@@ -88,7 +88,10 @@ export function createLeague(seed: number, level: number, season: number, myName
   }
   const table: Record<string, TableRow> = {};
   for (const t of teams) table[t.id] = emptyRow();
-  return { level, season, round: 0, teams, fixtures: roundRobin(ids), table };
+  // 홈/원정 두 바퀴: 전반기 일정 + 홈·원정을 바꾼 후반기
+  const first = roundRobin(ids);
+  const second = first.map((r) => r.map(([h, a]) => [a, h] as [string, string]));
+  return { level, season, round: 0, teams, fixtures: [...first, ...second], table };
 }
 
 export function sortedTable(league: LeagueState): { team: LeagueTeam; row: TableRow }[] {
@@ -126,9 +129,15 @@ export function recordResult(league: LeagueState, homeId: string, awayId: string
   }
 }
 
-export function aiSide(team: LeagueTeam): TeamSide {
+/** 리그가 높을수록 AI 팀도 전술이 좋아진다 (내 팀의 연구·스킬과 맞먹게) */
+export function leagueMods(level: number): MatchMods {
+  const v = level * 0.012;
+  return { ...NO_MODS, passAcc: v, powerShot: v, counter: v, gkSave: v, stamina: v / 2, longShot: v, pressing: v, finishing: v };
+}
+
+export function aiSide(team: LeagueTeam, level: number): TeamSide {
   const squad = team.squad!;
-  return { name: team.name, squad, power: teamPower(squad), mods: NO_MODS };
+  return { name: team.name, squad, power: teamPower(squad), mods: leagueMods(level) };
 }
 
 /** 이번 라운드에서 내 경기 상대와 홈/원정 여부 */
@@ -148,7 +157,7 @@ export function playOtherMatches(league: LeagueState, seed: number): void {
     if (h === PLAYER_TEAM_ID || a === PLAYER_TEAM_ID) continue;
     const ht = league.teams.find((t) => t.id === h)!;
     const at = league.teams.find((t) => t.id === a)!;
-    recordResult(league, h, a, quickResult(aiSide(ht), aiSide(at), rng.seed()));
+    recordResult(league, h, a, quickResult(aiSide(ht, league.level), aiSide(at, league.level), rng.seed()));
   }
 }
 

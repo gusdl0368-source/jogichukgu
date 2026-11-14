@@ -14,15 +14,15 @@ export interface TierDef {
 
 /** 선수 등급 = 리그 단계. 이름을 공유한다. */
 export const TIERS: TierDef[] = [
-  { id: 0, name: '동네 조기축구', short: '동네', color: '#9aa3ad', statMin: 30, statMax: 46, sellPrice: 4 },
-  { id: 1, name: '구 리그', short: '구', color: '#a8d672', statMin: 40, statMax: 55, sellPrice: 12 },
-  { id: 2, name: '시·도 리그', short: '시·도', color: '#4cbf5a', statMin: 50, statMax: 63, sellPrice: 40 },
-  { id: 3, name: 'K7 리그', short: 'K7', color: '#2bb7a3', statMin: 58, statMax: 70, sellPrice: 150 },
-  { id: 4, name: 'K6 리그', short: 'K6', color: '#3d8bef', statMin: 65, statMax: 76, sellPrice: 600 },
-  { id: 5, name: 'K5 리그', short: 'K5', color: '#8a5cf0', statMin: 71, statMax: 82, sellPrice: 2500 },
-  { id: 6, name: 'K4 리그', short: 'K4', color: '#f2b51d', statMin: 77, statMax: 87, sellPrice: 10000 },
-  { id: 7, name: 'K3 리그', short: 'K3', color: '#f07a2c', statMin: 82, statMax: 92, sellPrice: 40000 },
-  { id: 8, name: '국가대표', short: '국대', color: '#ef4f9a', statMin: 88, statMax: 99, sellPrice: 150000 },
+  { id: 0, name: '동네 조기축구', short: '동네', color: '#9aa3ad', statMin: 30, statMax: 46, sellPrice: 2 },
+  { id: 1, name: '구 리그', short: '구', color: '#a8d672', statMin: 40, statMax: 55, sellPrice: 5 },
+  { id: 2, name: '시·도 리그', short: '시·도', color: '#4cbf5a', statMin: 50, statMax: 63, sellPrice: 12 },
+  { id: 3, name: 'K7 리그', short: 'K7', color: '#2bb7a3', statMin: 58, statMax: 70, sellPrice: 28 },
+  { id: 4, name: 'K6 리그', short: 'K6', color: '#3d8bef', statMin: 65, statMax: 76, sellPrice: 66 },
+  { id: 5, name: 'K5 리그', short: 'K5', color: '#8a5cf0', statMin: 71, statMax: 82, sellPrice: 159 },
+  { id: 6, name: 'K4 리그', short: 'K4', color: '#f2b51d', statMin: 77, statMax: 87, sellPrice: 382 },
+  { id: 7, name: 'K3 리그', short: 'K3', color: '#f07a2c', statMin: 82, statMax: 92, sellPrice: 917 },
+  { id: 8, name: '국가대표', short: '국대', color: '#ef4f9a', statMin: 88, statMax: 99, sellPrice: 2201 },
 ];
 
 /** 등급이 처음 나오기 시작하는 스카우트 레벨 */
@@ -48,14 +48,19 @@ export function scoutProbabilities(level: number): number[] {
 
 /** 레벨 lv → lv+1 업그레이드 비용(회비) */
 export function scoutUpgradeCost(level: number): number {
-  return Math.round(60 * Math.pow(1.38, level - 1));
+  return Math.round(40 * Math.pow(1.42, level - 1) * Math.pow(level, 1.5));
+}
+
+/** 리그 단계가 하나 오를 때마다 모든 회비 수입에 곱하는 배율 */
+export const INCOME_LEAGUE_MULT = 2.4;
+
+export function incomeMult(league: number): number {
+  return Math.pow(INCOME_LEAGUE_MULT, league);
 }
 
 export const ECONOMY = {
   /** 운동장 수익: 초당 회비, 연락처 1개당 초 */
-  stadiumCashPerSec: 1,
-  /** 리그 단계가 하나 오를 때마다 운동장 수입 배율 */
-  stadiumLeagueMult: 2.2,
+  stadiumCashPerSec: 0.5,
   stadiumContactEverySec: 90,
   /** 오프라인 누적 상한(시간) */
   stadiumCapHours: 8,
@@ -70,7 +75,8 @@ export const ECONOMY = {
 export const ADS = {
   /** 하루 광고 보상 횟수와 보상 */
   dailyLimit: 3,
-  cash: 2500,
+  /** 운동장 30분치 (리그 배율은 따로 곱한다) */
+  cash: 900,
   contacts: 50,
   gems: 10,
   /** 가짜 광고 재생 시간(ms) */
@@ -85,17 +91,16 @@ export const MATCH = {
   winCash: 60,
   drawCash: 25,
   lossCash: 10,
-  /** 리그 단계가 오를수록 경기 보상 배율 */
-  leagueCashMult: 2.4,
 };
 
 export const LEAGUE = {
   teams: 10,
   /** 승격 보상 (리그 단계 L에서 승격할 때) */
   promotionGems: 50,
-  promotionCash: (league: number) => Math.round(500 * Math.pow(3, league)),
+  /** 운동장 2시간치 */
+  promotionCash: (league: number) => Math.round(3600 * incomeMult(league)),
   /** 리그 L 상대 팀 선수 등급 분포: L-1, L, L+1 비율 */
-  opponentTierMix: [0.35, 0.55, 0.1],
+  opponentTierMix: [0.15, 0.6, 0.25],
 };
 
 export const TRAINING = {

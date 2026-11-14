@@ -136,24 +136,25 @@ describe('리그', () => {
     expect(seen.size).toBe(45);
   });
 
-  it('시즌 9경기를 치르면 다음 시즌으로 넘어가고 순위가 기록된다', () => {
+  it('시즌 18경기(홈·원정)를 치르면 다음 시즌으로 넘어가고 순위가 기록된다', () => {
     const g = newGame();
+    expect(g.state.league.fixtures).toHaveLength(18);
     let summary = null;
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 18; i++) {
       expect(g.startMatch(T0 + i * HOUR)).toBe(true);
       summary = g.finishMatch();
     }
     expect(summary!.seasonEnd).toBeDefined();
     expect(g.state.league.season).toBe(2);
     expect(g.state.league.round).toBe(0);
-    expect(g.state.stats.matches).toBe(9);
+    expect(g.state.stats.matches).toBe(18);
   });
 
   it('1위면 승격하고 보상을 받는다', () => {
     const g = newGame();
     // 내 팀을 한 단계 위 선수로 채워서 1위를 만든다
     g.state.squad = generateSquad(new Rng(6), () => 3);
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 18; i++) {
       g.startMatch(T0);
       g.finishMatch();
     }
@@ -171,7 +172,7 @@ describe('리그', () => {
       stats: { pace: 99, shooting: 99, passing: 99, dribbling: 99, defending: 99, physical: 99 },
       overall: 99,
     }));
-    for (let i = 0; i < 9 && !g.state.champion; i++) {
+    for (let i = 0; i < 18 && !g.state.champion; i++) {
       g.startMatch(T0);
       g.finishMatch();
     }
@@ -507,5 +508,21 @@ describe('상점과 패스', () => {
     g.purchase('pass_premium', T0);
     expect(g.claimPass(0, true)).not.toBeNull();
     expect(g.passClaimable()).toBe(2);
+  });
+});
+
+describe('밸런스 안전장치', () => {
+  it('캠프 난이도는 리그 단계에 묶인다', () => {
+    const g = newGame();
+    g.state.training.cleared.penalty = 20;
+    expect(g.campMaxPlayable('penalty')).toBe(3);
+    g.state.league.level = 4;
+    expect(g.campMaxPlayable('penalty')).toBe(15);
+  });
+
+  it('AI 팀은 리그가 높을수록 전술 보정을 받는다', async () => {
+    const { leagueMods } = await import('../src/game/league');
+    expect(leagueMods(0).passAcc).toBe(0);
+    expect(leagueMods(8).passAcc).toBeGreaterThan(leagueMods(2).passAcc);
   });
 });

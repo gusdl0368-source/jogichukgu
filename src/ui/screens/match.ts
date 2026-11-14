@@ -1,4 +1,4 @@
-import { ADS, MAX_SCOUT_LEVEL, TIERS } from '../../data/balance';
+import { ADS, MAX_SCOUT_LEVEL, TIERS, incomeMult } from '../../data/balance';
 import { PLAYER_TEAM_ID, myFixture, myRank, sortedTable } from '../../game/league';
 import type { MatchEvent } from '../../game/match';
 import type { MatchSummary } from '../../game/state';
@@ -260,7 +260,7 @@ function renderStadium(app: App): string {
     <p class="muted" style="text-align:center;margin:0 0 12px">${duration(p.seconds * 1000)} 동안 쌓임 · 최대 ${r.capHours}시간 ${p.capped ? '<b style="color:var(--red)">(가득 찼어요!)</b>' : ''}</p>
     <div class="btn-row">
       <button class="btn" data-act="collect">수령하기</button>
-      <button class="btn green" data-act="stadium-ad" ${g.adsLeft('stadium') <= 0 ? 'disabled' : ''}>📺 +💵${fmt(ADS.cash * Math.pow(2.2, g.state.league.level))} (${g.adsLeft('stadium')}/${ADS.dailyLimit})</button>
+      <button class="btn green" data-act="stadium-ad" ${g.adsLeft('stadium') <= 0 ? 'disabled' : ''}>📺 +💵${fmt(ADS.cash * incomeMult(g.state.league.level))} (${g.adsLeft('stadium')}/${ADS.dailyLimit})</button>
     </div>
     <p class="muted" style="text-align:center">리그가 올라갈수록 운동장 수입이 커집니다.</p>`;
 }
@@ -270,7 +270,7 @@ function renderLeague(app: App): string {
   const t = sortedTable(s.league);
   const lv = s.league.level;
   return `<h2>${tierBadge(lv)} 순위표</h2>
-    <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/9경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '국가대표 우승!'}</b></p>
+    <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/${s.league.fixtures.length}경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '국가대표 우승!'}</b></p>
     <table class="table">
       <tr><th>#</th><th class="l">팀</th><th>경기</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr>
       ${t.map(({ team, row }, i) => `<tr class="${team.id === PLAYER_TEAM_ID ? 'me' : ''}">

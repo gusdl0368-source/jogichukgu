@@ -1,9 +1,9 @@
-import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
+import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, incomeMult, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
 import { RESEARCH, type ResearchEffect, type TreeId, researchCost, rushGemCost } from '../data/research';
 import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, SPONSORS, dailyDeals, passReward } from '../data/shop';
 import { MAX_SKILL_LEVEL, SKILLS as SKILL_DEFS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../data/skills';
 import { randomCrest, randomUserTeamName } from '../data/teams';
-import { CAMPS, type CampId, campWinChance } from '../data/training';
+import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
 import { PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
 import { type MatchMods, type TeamSide, explain, simulateMatch } from './match';
 import { compareSlot, generatePlayer, generateSquad, teamPower } from './players';
@@ -192,7 +192,7 @@ export class Game {
   stadiumRates(): { cashPerSec: number; contactEverySec: number; capHours: number } {
     const lv = this.state.league.level;
     return {
-      cashPerSec: ECONOMY.stadiumCashPerSec * Math.pow(ECONOMY.stadiumLeagueMult, lv) * (1 + this.researchEffect('stadiumCash') + this.sponsorEffect('stadiumCash')),
+      cashPerSec: ECONOMY.stadiumCashPerSec * incomeMult(lv) * (1 + this.researchEffect('stadiumCash') + this.sponsorEffect('stadiumCash')),
       contactEverySec: ECONOMY.stadiumContactEverySec / (1 + this.researchEffect('stadiumContacts')),
       capHours: ECONOMY.stadiumCapHours + this.researchEffect('offlineCap'),
     };
@@ -230,8 +230,7 @@ export class Game {
     if (this.adsLeft(kind) <= 0) return null;
     this.state.daily.ads[kind]++;
     const reward: Reward =
-      kind === 'cash' ? { cash: ADS.cash * Math.pow(ECONOMY.stadiumLeagueMult, this.state.league.level) }
-      : kind === 'stadium' ? { cash: ADS.cash * Math.pow(ECONOMY.stadiumLeagueMult, this.state.league.level) }
+      kind === 'cash' || kind === 'stadium' ? { cash: ADS.cash * incomeMult(this.state.league.level) }
       : kind === 'contacts' ? { contacts: ADS.contacts }
       : { gems: ADS.gems };
     this.add(reward);
@@ -257,7 +256,7 @@ export class Game {
     const fx = myFixture(this.state.league);
     if (!fx) return false;
     const me = this.mySide();
-    const opp = aiSide(fx.opponent);
+    const opp = aiSide(fx.opponent, this.state.league.level);
     const seed = this.rng().seed();
     const result = fx.home ? simulateMatch(me, opp, seed) : simulateMatch(opp, me, seed);
     this.state.match = {
@@ -291,7 +290,7 @@ export class Game {
     const myScore: [number, number] = m.home ? m.result.score : [m.result.score[1], m.result.score[0]];
     const outcome = myScore[0] > myScore[1] ? 'win' : myScore[0] < myScore[1] ? 'loss' : 'draw';
     const base = outcome === 'win' ? MATCH.winCash : outcome === 'draw' ? MATCH.drawCash : MATCH.lossCash;
-    const cash = Math.round(base * Math.pow(MATCH.leagueCashMult, league.level) * (1 + this.researchEffect('matchCash')));
+    const cash = Math.round(base * incomeMult(league.level) * (1 + this.researchEffect('matchCash')));
     this.add({ cash });
     const s = this.state.stats;
     s.matches++;
@@ -485,10 +484,14 @@ export class Game {
     return true;
   }
 
+  /** 도전 가능한 최고 난이도: 깬 단계 + 1, 그리고 리그 단계에 따른 상한 */
+  campMaxPlayable(id: CampId): number {
+    return Math.min(campDifficultyCap(this.state.league.level), this.state.training.cleared[id] + 1);
+  }
+
   /** 입장권 하나 사용. 도전 가능한 난이도는 깬 단계 + 1까지 */
   enterCamp(id: CampId, difficulty: number): boolean {
-    const camp = CAMPS.find((c) => c.id === id)!;
-    if (difficulty < 1 || difficulty > Math.min(camp.maxDifficulty, this.state.training.cleared[id] + 1)) return false;
+    if (difficulty < 1 || difficulty > this.campMaxPlayable(id)) return false;
     if (this.campEntriesLeft(id) <= 0) return false;
     this.state.daily.campUsed[id]++;
     return true;
@@ -714,5 +717,5 @@ export class Game {
 function simulateReasonsAsAway(m: NonNullable<GameState['match']>, game: Game): string[] {
   const [hs, as] = m.result.stats;
   const opp = game.state.league.teams.find((t) => t.id === m.opponentId)!;
-  return explain([as, hs], game.mySide(), aiSide(opp));
+  return explain([as, hs], game.mySide(), aiSide(opp, game.state.league.level));
 }

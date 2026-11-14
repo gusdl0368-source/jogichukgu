@@ -108,7 +108,7 @@ export function simulateMatch(home: TeamSide, away: TeamSide, seed: number): Mat
     const f = [fatigue(minute, home.squad, home.mods), fatigue(minute, away.squad, away.mods)];
     const mid = [home.power.mid * f[0] * (1 + home.mods.pressing), away.power.mid * f[1] * (1 + away.mods.pressing)];
     const ratio = mid[0] / mid[1];
-    const pHome = Math.pow(ratio, 2.5) / (1 + Math.pow(ratio, 2.5));
+    const pHome = Math.pow(ratio, 3.5) / (1 + Math.pow(ratio, 3.5));
     const att: 0 | 1 = rng.chance(pHome) ? 0 : 1;
     const def: 0 | 1 = att === 0 ? 1 : 0;
     const A = sides[att];
@@ -147,7 +147,7 @@ export function simulateMatch(home: TeamSide, away: TeamSide, seed: number): Mat
 
     // 2) 찬스 만들기: 공격 vs 수비
     const atkShare = (A.power.atk * f[att]) / (A.power.atk * f[att] + D.power.def * f[def]);
-    const chanceP = clamp(0.22 + 0.55 * atkShare + (isCounter ? 0.12 : 0), 0.15, 0.85);
+    const chanceP = clamp(0.1 + 0.8 * atkShare + (isCounter ? 0.12 : 0), 0.1, 0.9);
     const shooterSlot = ATTACKERS[rng.weighted(ATTACKER_WEIGHT)];
     const shooter = A.squad[shooterSlot];
     const longShot = !rng.chance(chanceP);

@@ -1,6 +1,7 @@
 // 상점 상품. 프로토타입이라 실제 결제는 연동하지 않고, 구매 버튼을 누르면 확인 후 바로 지급한다.
 
 import type { Reward } from '../game/types';
+import { ECONOMY, incomeMult } from './balance';
 
 export interface CashProduct {
   id: string;
@@ -19,11 +20,12 @@ export const GEM_PACKS: (CashProduct & { gems: number })[] = [
 
 /** 하루 특가 3종. 세 개를 다 사면 다음 세트가 열린다. league에 따라 회비 양이 커진다. */
 export function dailyDeals(set: number, league: number): (CashProduct & { reward: Reward })[] {
-  const m = Math.pow(2.2, league) * (1 + set * 0.5);
+  // 회비는 "운동장 몇 시간치"로 정한다
+  const hour = 3600 * ECONOMY.stadiumCashPerSec * incomeMult(league) * (1 + set * 0.5);
   return [
     { id: `deal_${set}_0`, name: '스카우트 대장 특가', price: 7700, reward: { contacts: 500, gems: 150 } },
-    { id: `deal_${set}_1`, name: '구단주 특가', price: 25000, reward: { contacts: 900, gems: 120, boards: 800, cash: Math.round(20000 * m) } },
-    { id: `deal_${set}_2`, name: '자원 몰빵 특가', price: 77000, reward: { cash: Math.round(90000 * m), whistles: 4000, contacts: 2000, boards: 2500, gems: 250 } },
+    { id: `deal_${set}_1`, name: '구단주 특가', price: 25000, reward: { contacts: 900, gems: 120, boards: 800, cash: Math.round(6 * hour) } },
+    { id: `deal_${set}_2`, name: '자원 몰빵 특가', price: 77000, reward: { cash: Math.round(30 * hour), whistles: 4000, contacts: 2000, boards: 2500, gems: 250 } },
   ];
 }
 
@@ -51,10 +53,11 @@ export const EXTRA_SKILL_SLOT: CashProduct = { id: 'skill_slot', name: '스킬 �
 export const PASS_PRODUCT: CashProduct = { id: 'pass_premium', name: '시즌 회비 패스 (프리미엄)', price: 17000 };
 
 /** 패스 단계: 리그 경기 승리 수로 진행 */
-export const PASS_STEPS = 30;
+export const PASS_STEPS = 40;
 
 export function passReward(step: number, premium: boolean, league: number): Reward {
-  const cash = Math.round(300 * Math.pow(2.2, league) * (premium ? 3 : 1));
+  // 무료는 운동장 20분치, 프리미엄은 1시간치
+  const cash = Math.round(1200 * ECONOMY.stadiumCashPerSec * incomeMult(league) * (premium ? 3 : 1));
   const kind = step % 3;
   if (kind === 0) return { cash, contacts: premium ? 40 : 15 };
   if (kind === 1) return { cash, whistles: premium ? 250 : 80 };
@@ -72,7 +75,7 @@ export interface GemItem {
 
 export const GEM_ITEMS: GemItem[] = [
   { id: 'g_contacts', name: '연락처 300', icon: '📞', gems: 50, reward: () => ({ contacts: 300 }) },
-  { id: 'g_cash', name: '회비 상자 (운동장 3시간치)', icon: '💵', gems: 40, reward: (l) => ({ cash: Math.round(3 * 3600 * Math.pow(2.2, l)) }) },
+  { id: 'g_cash', name: '회비 상자 (운동장 3시간치)', icon: '💵', gems: 40, reward: (l) => ({ cash: Math.round(3 * 3600 * ECONOMY.stadiumCashPerSec * incomeMult(l)) }) },
   { id: 'g_boards', name: '작전판 200', icon: '📋', gems: 60, reward: () => ({ boards: 200 }) },
   { id: 'g_whistles', name: '호루라기 600', icon: '📯', gems: 60, reward: () => ({ whistles: 600 }) },
 ];

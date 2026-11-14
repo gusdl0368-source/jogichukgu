@@ -1,4 +1,4 @@
-import { ADS, ECONOMY } from '../../data/balance';
+import { ADS, ECONOMY, incomeMult } from '../../data/balance';
 import { GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, SPONSORS, dailyDeals } from '../../data/shop';
 import type { AdKind } from '../../game/game';
 import type { ActionHandler, App } from '../app';
@@ -10,7 +10,7 @@ export function render(app: App): string {
   const s = g.state;
   const now = app.now();
   const deals = dailyDeals(s.daily.deals.set, s.league.level);
-  const lvMult = Math.pow(ECONOMY.stadiumLeagueMult, s.league.level);
+  const lvMult = incomeMult(s.league.level);
   const ads: { kind: AdKind; label: string }[] = [
     { kind: 'cash', label: `💵 +${fmt(ADS.cash * lvMult)}` },
     { kind: 'contacts', label: `📞 +${ADS.contacts}` },
