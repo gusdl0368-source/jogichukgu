@@ -360,6 +360,38 @@ describe('골 기록', () => {
   });
 });
 
+describe('라이벌', () => {
+  it('시즌마다 라이벌이 하나 정해지고, 두 번 만나며, 이기면 보석을 더 받는다', () => {
+    const g = newGame(3);
+    const rv = g.rival()!;
+    expect(rv).toBeDefined();
+    expect(rv.id).not.toBe('me');
+    let t = T0;
+    let meetings = 0;
+    let rec: { won: number; drawn: number; lost: number } | undefined;
+    for (let i = 0; i < 18; i++) {
+      g.startMatch(t);
+      const isRival = g.isRivalMatch();
+      const gemsBefore = g.state.wallet.gems;
+      const s = g.finishMatch()!;
+      if (isRival) {
+        meetings++;
+        expect(s.rival).toBeDefined();
+        expect(s.rival!.line.length).toBeGreaterThan(0);
+        if (s.outcome === 'win') expect(g.state.wallet.gems - gemsBefore).toBeGreaterThanOrEqual(5);
+      } else expect(s.rival).toBeUndefined();
+      if (s.seasonEnd) rec = s.seasonEnd.rival;
+      t += HOUR;
+    }
+    expect(meetings).toBe(2);
+    expect(rec).toBeDefined();
+    expect(rec!.won + rec!.drawn + rec!.lost).toBe(2);
+    // 새 시즌엔 새 라이벌 (리그가 바뀌므로 다시 정해진다)
+    expect(g.state.league.rivalId).toBeUndefined();
+    expect(g.rival()).toBeDefined();
+  });
+});
+
 describe('연구', () => {
   it('작전판이 모자라거나 연구 중이면 시작할 수 있는 연구가 없다고 알려준다 (탭 빨간 점)', () => {
     const g = newGame();

@@ -1892,3 +1892,41 @@ img.pe {
 }
 .card .gls img { width: 9px; height: 9px; }
 .settings-toggles { display: grid; gap: 10px; }
+
+/* 라이벌 */
+.rival-tag {
+  display: inline-block;
+  background: #ff5a3c;
+  color: #fff;
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  padding: 0 8px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  animation: rival-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rival-pulse {
+  50% { transform: scale(1.06); }
+}
+.rival-mini {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: #d8402a;
+}
+.rival-quote {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: #ffd9cf;
+  margin: 2px 8px 4px;
+  line-height: 1.4;
+}
+.rival-quote b {
+  display: block;
+  font-weight: 400;
+  color: #ffe08a;
+}
+@media (prefers-reduced-motion: reduce) { .rival-tag { animation: none; } }
+.table th { white-space: nowrap; }
+.result-banner { z-index: 5; }
+.rival-bonus { color: #ffe08a; }

@@ -31,7 +31,9 @@ export interface MatchSummary {
   cash: number;
   /** 이 경기에서 골을 넣은 우리 선수 이름 (골 수만큼 반복) */
   scorers?: string[];
-  seasonEnd?: { rank: number; promoted: boolean; level: number; reward?: { cash: number; gems: number }; topScorer?: { name: string; goals: number } };
+  /** 라이벌전이었으면 결과와 상대 감독 한마디 */
+  rival?: { manager: string; line: string; bonusCash: number; bonusGems: number };
+  seasonEnd?: { rank: number; promoted: boolean; level: number; reward?: { cash: number; gems: number }; topScorer?: { name: string; goals: number }; rival?: { name: string; won: number; drawn: number; lost: number } };
   champion?: boolean;
 }
 

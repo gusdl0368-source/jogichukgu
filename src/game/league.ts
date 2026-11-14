@@ -42,6 +42,10 @@ export interface LeagueState {
   table: Record<string, TableRow>;
   /** 이 리그에서 승격 못 하고 넘긴 시즌 수 */
   attempts?: number;
+  /** 이번 시즌 라이벌 팀 id */
+  rivalId?: string;
+  /** 이번 시즌 라이벌 상대 전적 */
+  rivalRecord?: { won: number; drawn: number; lost: number };
 }
 
 /** 원형 방식 라운드 로빈: n팀이면 n-1라운드, 라운드마다 n/2경기 */

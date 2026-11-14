@@ -1,4 +1,5 @@
 import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, LUCKY_SCOUT, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, incomeMult, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
+import { RIVAL, RIVAL_LINES, pickLine, rivalManager } from '../data/rival';
 import { RESEARCH, type ResearchEffect, type TreeId, researchCost, rushGemCost } from '../data/research';
 import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, SPONSORS, dailyDeals, passReward } from '../data/shop';
 import { MAX_SKILL_LEVEL, SKILLS as SKILL_DEFS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../data/skills';
@@ -10,7 +11,7 @@ import {
 import { randomCrest, randomUserTeamName } from '../data/teams';
 import { traitById, traitsFor } from '../data/traits';
 import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
-import { PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
+import { type LeagueTeam, PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
 import { type MatchMods, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
 import { compareSlot, computeOverall, generatePlayer, generateSquad, teamPower } from './players';
 import { Rng } from './rng';
@@ -293,6 +294,34 @@ export class Game {
     return MATCH.realSeconds * 1000;
   }
 
+  /** 이번 시즌 라이벌 팀. 없으면 내 팀 파워에 가장 가까운(조금 더 센) 팀으로 정한다 */
+  rival(): LeagueTeam | undefined {
+    const league = this.state.league;
+    if (!league.rivalId) {
+      const mine = this.mySide().power.total;
+      let best: LeagueTeam | undefined;
+      let bd = Infinity;
+      for (const t of league.teams) {
+        if (t.id === PLAYER_TEAM_ID || !t.squad) continue;
+        const d = Math.abs(teamPower(t.squad).total - mine * 1.05);
+        if (d < bd) {
+          bd = d;
+          best = t;
+        }
+      }
+      if (!best) return undefined;
+      league.rivalId = best.id;
+      league.rivalRecord = { won: 0, drawn: 0, lost: 0 };
+    }
+    return league.teams.find((t) => t.id === league.rivalId);
+  }
+
+  /** 다음(또는 지금) 경기가 라이벌전인가 */
+  isRivalMatch(): boolean {
+    const id = this.state.match?.opponentId ?? myFixture(this.state.league)?.opponent.id;
+    return !!id && id === this.rival()?.id;
+  }
+
   startMatch(now: number): boolean {
     if (this.state.match || this.state.champion) return false;
     if (seasonOver(this.state.league)) this.newSeason(false);
@@ -358,10 +387,24 @@ export class Game {
       scorers.push(p.name);
     }
 
+    // 라이벌전: 이기면 회비 추가 + 보석, 상대 감독 한마디
+    let rival: MatchSummary['rival'];
+    if (m.opponentId === this.rival()?.id) {
+      const rec = (league.rivalRecord ??= { won: 0, drawn: 0, lost: 0 });
+      if (outcome === 'win') rec.won++;
+      else if (outcome === 'draw') rec.drawn++;
+      else rec.lost++;
+      const bonusCash = outcome === 'win' ? Math.round(cash * RIVAL.winCashBonus) : 0;
+      const bonusGems = outcome === 'win' ? RIVAL.winGems : 0;
+      if (bonusCash || bonusGems) this.add({ cash: bonusCash, gems: bonusGems });
+      const lines = outcome === 'win' ? RIVAL_LINES.win : outcome === 'loss' ? RIVAL_LINES.loss : RIVAL_LINES.draw;
+      rival = { manager: rivalManager(m.opponentId, league.season), line: pickLine(lines, m.result.score[0] * 7 + m.result.score[1] * 3 + league.round), bonusCash, bonusGems };
+    }
+
     // 원정 경기면 이유도 원정 입장에서 다시 써야 하므로, 홈 기준 이유는 홈일 때만 그대로 쓴다
     const reasons = m.home ? m.result.reasons : simulateReasonsAsAway(m, this);
 
-    const summary: MatchSummary = { opponentName: opp.name, score: m.result.score, myScore, outcome, reasons, cash, scorers };
+    const summary: MatchSummary = { opponentName: opp.name, score: m.result.score, myScore, outcome, reasons, cash, scorers, rival };
     this.state.match = null;
     if (seasonOver(league)) summary.seasonEnd = this.endSeason();
     if (this.state.champion) summary.champion = true;
@@ -377,9 +420,12 @@ export class Game {
   }
 
   private endSeason(): NonNullable<MatchSummary['seasonEnd']> {
+    const rv = this.rival();
+    const rec = this.state.league.rivalRecord;
     const r = this.endSeasonInner();
     const top = this.seasonTopScorer();
     if (top) r.topScorer = top;
+    if (rv && rec) r.rival = { name: rv.name, ...rec };
     for (const p of this.state.squad) p.seasonGoals = 0;
     return r;
   }

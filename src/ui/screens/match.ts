@@ -3,6 +3,7 @@ import { PLAYER_TEAM_ID, myFixture, myRank, sortedTable } from '../../game/leagu
 import type { MatchEvent } from '../../game/match';
 import type { MatchSummary } from '../../game/state';
 import { FORMATION, type Player } from '../../game/types';
+import { RIVAL_LINES, pickLine, rivalManager } from '../../data/rival';
 import type { ActionHandler, App } from '../app';
 import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../cards';
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
@@ -41,6 +42,10 @@ export function lifecycle(app: App, now: number): void {
     if (g.startMatch(now)) {
       ui.shownGoals = 0;
       ui.banner = null;
+      if (g.isRivalMatch() && app.tab === 'match') {
+        const rv = g.rival()!;
+        app.toast(`🔥 라이벌전! ${rivalManager(rv.id, g.state.league.season)}: “${pickLine(RIVAL_LINES.before, g.state.league.round)}”`);
+      }
       if (app.tab === 'match') sfx('whistle');
       if (app.tab === 'match') app.refresh();
     }
@@ -115,9 +120,9 @@ export function render(app: App): string {
     <div class="scoreboard">
       <div class="side me">${crestHtml(s.crest, 28)}<div style="min-width:0"><div class="name">${esc(s.teamName)}</div><div class="pw">⚡${power.total}</div></div></div>
       <div class="score" id="score">0 - 0</div>
-      <div class="side opp">${opp ? crestHtml(opp.crest, 28) : ''}<div style="min-width:0"><div class="name">${esc(opp?.name ?? '-')}</div><div class="pw">⚡${Math.round(oppPower * 10) / 10}</div></div></div>
+      <div class="side opp">${opp ? crestHtml(opp.crest, 28) : ''}<div style="min-width:0"><div class="name">${opp && opp.id === app.game.rival()?.id ? '🔥' : ''}${esc(opp?.name ?? '-')}</div><div class="pw">⚡${Math.round(oppPower * 10) / 10}</div></div></div>
     </div>
-    <div class="venue">${TIERS[s.league.level].icon} ${TIERS[s.league.level].name} · ${TIERS[s.league.level].venue} · <button class="venue-style" data-act="style-cycle">${STYLES[s.style].icon} ${STYLES[s.style].name}</button></div>
+    <div class="venue">${app.game.isRivalMatch() && !s.champion ? '<span class="rival-tag">🔥 라이벌전</span> ' : ''}${TIERS[s.league.level].icon} ${TIERS[s.league.level].name} · ${TIERS[s.league.level].venue} · <button class="venue-style" data-act="style-cycle">${STYLES[s.style].icon} ${STYLES[s.style].name}</button></div>
     <div class="pitch-wrap" id="pitch-wrap">
       <div id="pitch-slot"></div>
       <div class="clock" id="clock">00'</div>
@@ -166,9 +171,10 @@ function renderBanner(now: number): string {
     <canvas id="ft-scene" width="400" height="120"></canvas>
     <div class="ft-title">FULL-TIME</div>
     <div class="big" style="color:${color}">${s.myScore[0]} - ${s.myScore[1]} ${label} <span class="ft-cash">💵 +${fmt(s.cash)}</span></div>
-    <div class="muted" style="color:#cfd6e4">vs ${esc(s.opponentName)}</div>
+    <div class="muted" style="color:#cfd6e4">vs ${esc(s.opponentName)}${s.rival?.bonusCash ? ` · <span class="rival-bonus">🔥 보너스 💵+${fmt(s.rival.bonusCash)} 💎+${s.rival.bonusGems}</span>` : ''}</div>
     ${s.scorers?.length ? `<div class="ft-scorers">⚽ ${scorerLine(s.scorers)}</div>` : ''}
-    <ul>${s.reasons.slice(0, 3).map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
+    ${s.rival ? `<div class="rival-quote">${esc(s.rival.manager)}: “${esc(s.rival.line)}”</div>` : ''}
+    <ul>${s.reasons.slice(0, s.rival ? 0 : s.scorers?.length ? 2 : 3).map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
   </div>`;
 }
 
@@ -189,7 +195,7 @@ export function tick(app: App, now: number): void {
   const s = app.state;
   const m = s.match;
   // 경기 중일 때만 관중 함성
-  setCrowd(m ? Math.max(0.15, TIERS[s.league.level].crowd) : 0, app.pitch.excitement());
+  setCrowd(m ? Math.max(0.15, TIERS[s.league.level].crowd) : 0, Math.min(1, app.pitch.excitement() + (m && app.game.isRivalMatch() ? 0.2 : 0)));
   // 경기 중에는 함성이 들리게 음악을 줄인다
   duckMusic(m ? 0.4 : 1);
   const clock = app.root.querySelector('#clock');
@@ -361,10 +367,11 @@ function renderLeague(app: App): string {
   const lv = s.league.level;
   return `<h2>${tierBadge(lv)} 순위표</h2>
     <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/${s.league.fixtures.length}경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '세계 정상!'}</b></p>
+    <p class="muted" style="text-align:center;margin:-2px 0 8px;font-size:12px">🔥 표시는 이번 시즌 라이벌 · 이기면 회비 2배와 💎+5</p>
     <table class="table">
       <tr><th>#</th><th class="l">팀</th><th>경기</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr>
       ${t.map(({ team, row }, i) => `<tr class="${team.id === PLAYER_TEAM_ID ? 'me' : ''}">
-        <td>${i + 1}</td><td class="l">${crestHtml(team.crest, 20)} ${esc(team.name)}</td>
+        <td>${i + 1}</td><td class="l">${crestHtml(team.crest, 20)} ${team.id === app.game.rival()?.id ? '<span class="rival-mini" title="라이벌">🔥</span>' : ''}${esc(team.name)}</td>
         <td>${row.played}</td><td>${row.won}</td><td>${row.drawn}</td><td>${row.lost}</td><td>${row.gf - row.ga}</td><td><b>${row.points}</b></td></tr>`).join('')}
     </table>`;
 }

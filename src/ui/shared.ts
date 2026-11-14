@@ -97,6 +97,7 @@ export function openSeasonEnd(app: App, s: MatchSummary): void {
       ${e.promoted
         ? `<p><b>${tierBadge(e.level)}로 승격!</b><br>더 강한 상대와 더 많은 수입이 기다립니다.</p><div class="rewards" style="justify-content:center">${rewardChips(e.reward ?? {})}</div>`
         : `<p>1위를 해야 승격할 수 있어요.<br>같은 리그에서 새 시즌을 시작합니다.</p><p class="muted">💡 스카우트 레벨을 올리고 더 좋은 선수를 영입하세요.</p>`}
+      ${e.rival ? `<p class="muted" style="margin:6px 0 0">🔥 라이벌 ${esc(e.rival.name)} 상대 ${e.rival.won}승 ${e.rival.drawn}무 ${e.rival.lost}패</p>` : ''}
       ${e.topScorer ? `<div class="top-scorer">👑 시즌 팀 득점왕 <b>${esc(e.topScorer.name)}</b> ${e.topScorer.goals}골</div>` : ''}
       <p></p><button class="btn block" data-act="close">계속하기</button></div>`,
   });

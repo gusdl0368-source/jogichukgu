@@ -1,6 +1,16 @@
-export const GAME_VERSION = '베타 0.14.0';
+export const GAME_VERSION = '베타 0.15.0';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.15.0',
+    date: '2026-11',
+    items: [
+      '라이벌 구단: 매 시즌 리그에서 우리와 비슷하거나 조금 센 팀이 앙숙이 됨',
+      '라이벌전은 점수판과 순위표에 🔥 표시, 관중 함성도 더 커짐',
+      '라이벌전에서 이기면 회비 2배와 💎+5, 경기 전후로 상대 감독이 한마디',
+      '시즌이 끝나면 라이벌 상대 전적 발표',
+    ],
+  },
   {
     version: '베타 0.14.0',
     date: '2026-11',
