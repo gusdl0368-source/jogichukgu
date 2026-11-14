@@ -15,9 +15,14 @@ interface DbNs {
 interface UserNs {
   id(): Promise<string | null>;
 }
+interface PermissionsNs {
+  state(): Promise<Record<string, string>>;
+}
 interface ClaudeHost {
   use(name: string): Promise<unknown>;
 }
+
+export type CloudStatus = 'off' | 'on' | 'unavailable';
 
 const CLOUD_MIN_INTERVAL_MS = 30_000;
 
@@ -59,20 +64,48 @@ export class CloudSave {
   private pending: GameState | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
+  status: CloudStatus = 'off';
+
   get ready(): boolean {
     return !!this.ref && !this.disabled;
   }
 
-  /** 클라우드 저장을 연결하고, 있으면 저장된 상태를 돌려준다 */
-  async connect(): Promise<GameState | null> {
+  /**
+   * 클라우드 저장을 연결하고, 있으면 저장된 상태를 돌려준다.
+   * ask가 false면(페이지를 열 때) 이미 허락받은 경우에만 연결한다.
+   * 권한 확인 창은 사용자가 '계정 저장 켜기'를 눌렀을 때만 뜨게 한다.
+   */
+  async connect(ask: boolean): Promise<GameState | null> {
     const host = (window as unknown as { claude?: ClaudeHost }).claude;
-    if (!host?.use) return null;
+    if (!host?.use) {
+      this.status = 'unavailable';
+      return null;
+    }
     try {
+      if (!ask) {
+        const perms = (await withTimeout(host.use('permissions'), 10_000)) as PermissionsNs | null;
+        const states = perms ? await withTimeout(perms.state(), 5_000) : null;
+        if (!states || !('db' in states)) {
+          this.status = 'unavailable';
+          return null;
+        }
+        if (states.db !== 'granted' || (states.user && states.user !== 'granted')) {
+          this.status = 'off';
+          return null;
+        }
+      }
       const [db, user] = (await Promise.all([host.use('db'), host.use('user')])) as [DbNs | null, UserNs | null];
-      if (!db || !user) return null;
+      if (!db || !user) {
+        this.status = 'unavailable';
+        return null;
+      }
       const id = await user.id();
-      if (!id) return null;
+      if (!id) {
+        this.status = 'unavailable';
+        return null;
+      }
       this.ref = db.doc(`data/users/${id}/save`);
+      this.status = 'on';
       const snap = await withTimeout(this.ref.get(), 10_000);
       const body = snap?.exists ? snap.data() : undefined;
       const state = typeof body?.json === 'string' ? deserialize(body.json) : null;
@@ -80,6 +113,7 @@ export class CloudSave {
       return state;
     } catch {
       this.ref = null;
+      this.status = 'unavailable';
       return null;
     }
   }
@@ -112,7 +146,10 @@ export class CloudSave {
     } catch (e) {
       // 보기 전용 권한 등으로 거절되면 이번 방문 동안은 브라우저 저장만 쓴다
       const code = (e as { code?: string })?.code;
-      if (code !== 'unavailable' && code !== 'resource_exhausted') this.disabled = true;
+      if (code !== 'unavailable' && code !== 'resource_exhausted') {
+        this.disabled = true;
+        this.status = 'unavailable';
+      }
     } finally {
       this.writing = false;
     }

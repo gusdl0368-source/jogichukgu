@@ -183,7 +183,12 @@ export class App {
   renderModal(force = false): void {
     const root = this.root.querySelector('#modal-root');
     if (!root) return;
-    const m = this.topModal();
+    let m = this.topModal();
+    // 내용이 사라진 창(예: 대기 선수가 없어진 비교 창)은 닫는다. 닫을 수 없는 빈 창이 화면을 막지 않게.
+    while (m && !m.render().trim()) {
+      this.modalStack.pop();
+      m = this.topModal();
+    }
     const html = m
       ? `<div class="overlay" data-act="${m.dismissable ? 'overlay' : ''}"><div class="modal ${m.cls ?? ''}">${m.dismissable ? '<button class="close-x" data-act="close">✕</button>' : ''}${m.render()}</div></div>`
       : '';
@@ -270,9 +275,25 @@ export class App {
       console.warn('unknown action', act);
       return;
     }
-    handler(this, arg, el);
+    try {
+      handler(this, arg, el);
+    } catch (e) {
+      this.reportError(e);
+    }
     this.save();
     this.updateWallet();
+  }
+
+  private lastError = 0;
+
+  /** 베타용: 오류를 화면에 짧게 보여주고, 닫을 수 없는 빈 창이 남지 않게 정리한다 */
+  reportError(e: unknown): void {
+    console.error(e);
+    const now = Date.now();
+    if (now - this.lastError < 3000) return;
+    this.lastError = now;
+    const msg = e instanceof Error ? e.message : String(e);
+    this.toast(`⚠️ 오류: ${msg.slice(0, 60)}`);
   }
 
   registerActions(actions: Record<string, ActionHandler>): void {
@@ -290,7 +311,11 @@ export class App {
       if (this.tab === 'tactics') this.refresh();
     }
     matchScreen.lifecycle(this, now);
-    SCREENS[this.tab].tick?.(this, now);
+    try {
+      SCREENS[this.tab].tick?.(this, now);
+    } catch (e) {
+      this.reportError(e);
+    }
     this.updateWallet();
     const m = this.topModal();
     if (m?.live) this.renderModal();

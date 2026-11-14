@@ -1,6 +1,15 @@
-export const GAME_VERSION = '베타 0.9.0';
+export const GAME_VERSION = '베타 0.9.1';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.9.1',
+    date: '2026-11',
+    items: [
+      '수정: 일부 환경에서 화면을 열자마자 권한 확인 창 때문에 터치가 막히던 문제',
+      '계정 저장은 이제 설정에서 직접 켭니다 (한 번 켜면 다음부터 자동)',
+      '오류가 나도 게임이 멈추지 않고, 화면에 오류 내용을 짧게 보여줍니다',
+    ],
+  },
   {
     version: '베타 0.9.0',
     date: '2026-11',

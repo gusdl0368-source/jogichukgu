@@ -5,10 +5,30 @@ import { type MatchSummary, deserialize, serialize } from '../game/state';
 import { DAILY_BONUS, DAILY_MISSIONS } from '../data/missions';
 import { GAME_VERSION, PATCH_NOTES } from '../data/version';
 import { sfx } from './sound';
+import { resumePending } from './screens/match';
 import type { ActionHandler, App } from './app';
 import { duration, esc, fmt, rewardChips, rewardText, tierBadge, won } from './dom';
 
 // 여러 화면에서 같이 쓰는 모달과 액션
+
+/** 계정 저장 연결. ask면 권한 확인 창이 뜰 수 있다(사용자가 버튼을 눌렀을 때만). */
+export async function connectCloud(app: App, ask: boolean): Promise<void> {
+  const remote = await app.cloud.connect(ask);
+  if (remote && remote.lastActive > app.state.lastActive + 1000) {
+    app.replaceState(remote);
+    const r = app.game.catchUp(Date.now());
+    app.refresh();
+    if (app.state.champion) openEnding(app);
+    else openOffline(app, r);
+    resumePending(app);
+    app.toast('☁️ 계정에 저장된 진행을 불러왔어요');
+  }
+  if (app.cloud.status === 'on') app.save(true);
+  if (ask) {
+    app.toast(app.cloud.status === 'on' ? '☁️ 계정 저장이 켜졌어요' : '☁️ 이 화면에서는 계정 저장을 쓸 수 없어요 (브라우저에 저장돼요)');
+    app.renderModal(true);
+  }
+}
 
 export function openPass(app: App): void {
   app.openModal({ id: 'pass', render: () => renderPass(app) });
@@ -147,6 +167,11 @@ function openSettings(app: App): void {
         <div class="muted">스카우트 ${app.state.scoutCount}명</div>
       </div>
       <div class="panel"><div class="row-between"><h3 style="margin:0">🔊 효과음</h3><button class="btn small ${app.state.settings.sound ? 'green' : 'gray'}" data-act="toggle-sound">${app.state.settings.sound ? '켜짐' : '꺼짐'}</button></div></div>
+      <div class="panel"><div class="row-between"><h3 style="margin:0">☁️ 계정 저장</h3>${
+        app.cloud.status === 'on' ? '<b style="color:var(--green)">켜짐</b>'
+        : app.cloud.status === 'unavailable' ? '<span class="muted">이 화면에선 안 돼요</span>'
+        : '<button class="btn small" data-act="cloud-on">켜기</button>'}</div>
+        <p class="muted" style="margin:6px 0 0">켜면 다른 기기에서도 이어서 할 수 있어요. 끄면 이 브라우저에만 저장돼요.</p></div>
       <div class="panel"><h3>저장 코드</h3>
         <p class="muted" style="margin:0 0 8px">다른 기기로 옮기거나 백업할 때 씁니다. 복사한 코드를 다른 기기의 ‘가져오기’에 붙여넣으세요.</p>
         <div class="btn-row"><button class="btn small" data-act="export-save">코드 복사</button><button class="btn small gray" data-act="import-open">가져오기</button></div>
@@ -247,6 +272,9 @@ export const SHARED_ACTIONS: Record<string, ActionHandler> = {
       app.toast(`🎁 ${rewardText(r)}`);
     }
     app.refresh();
+  },
+  'cloud-on'(app) {
+    void connectCloud(app, true);
   },
   'toggle-sound'(app) {
     app.state.settings.sound = !app.state.settings.sound;

@@ -3,7 +3,7 @@ import { newGameState } from './game/state';
 import { loadLocal } from './storage';
 import { App } from './ui/app';
 import * as matchScreen from './ui/screens/match';
-import { openEnding, openOffline, openTutorial } from './ui/shared';
+import { connectCloud, openEnding, openOffline, openTutorial } from './ui/shared';
 import { setSoundEnabled } from './ui/sound';
 
 const game = new Game(loadLocal() ?? newGameState(Date.now()));
@@ -22,19 +22,8 @@ else if (game.state.champion) openEnding(app);
 else openOffline(app, report);
 matchScreen.resumePending(app);
 
-// claude.ai에서 열렸으면 내 계정 저장을 불러온다. 이 기기 것보다 새로우면 그걸로 이어한다.
-void app.cloud.connect().then((remote) => {
-  if (remote && remote.lastActive > game.state.lastActive + 1000) {
-    app.replaceState(remote);
-    const r = game.catchUp(Date.now());
-    app.refresh();
-    if (game.state.champion) openEnding(app);
-    else openOffline(app, r);
-    matchScreen.resumePending(app);
-    app.toast('☁️ 저장된 진행을 불러왔어요');
-  }
-  app.save(true);
-});
+// claude.ai에서 열렸고 이미 계정 저장을 허락했으면 이어서 쓴다 (처음엔 설정에서 직접 켠다)
+void connectCloud(app, false);
 
 setInterval(() => app.tick(), 250);
 
@@ -56,6 +45,10 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 window.addEventListener('pagehide', () => app.save(true));
+
+// 베타: 예상 못 한 오류는 화면에 짧게 보여준다 (멈춘 것처럼 보이지 않게, 제보할 수 있게)
+window.addEventListener('error', (e) => app.reportError(e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => app.reportError(e.reason));
 
 // 개발 중 콘솔에서 상태를 볼 수 있게
 (window as unknown as { game: Game }).game = game;
