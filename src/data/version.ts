@@ -1,6 +1,14 @@
-export const GAME_VERSION = '베타 0.11.0';
+export const GAME_VERSION = '베타 0.11.1';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.11.1',
+    date: '2026-11',
+    items: [
+      '수정: 자동 스카우트를 켜 두고 다른 탭에 가면 비교 창 버튼이 안 눌려 화면이 막히던 문제',
+      '다른 탭을 보는 중에 좋은 선수를 찾으면 창 대신 알림과 경기 탭 빨간 점으로 알려주고, 경기 탭에 돌아오면 비교 창이 뜹니다',
+    ],
+  },
   {
     version: '베타 0.11.0',
     date: '2026-11',

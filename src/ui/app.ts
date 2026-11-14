@@ -146,6 +146,17 @@ export class App {
     </header>`;
   }
 
+  /** 하단 탭의 빨간 점만 다시 그린다 */
+  refreshTabDots(): void {
+    this.root.querySelectorAll<HTMLElement>('.tab').forEach((el) => {
+      const id = el.dataset.arg as TabId;
+      const has = this.tabHasDot(id);
+      const dot = el.querySelector('.dot');
+      if (has && !dot) el.insertAdjacentHTML('beforeend', '<span class="dot"></span>');
+      if (!has && dot) dot.remove();
+    });
+  }
+
   updateWallet(): void {
     const w = this.state.wallet;
     const set = (id: string, v: string) => {
@@ -165,6 +176,8 @@ export class App {
         return g.tournamentTicketsLeft() > 0 || !!g.state.tournament.pendingReward;
       case 'training':
         return trainingScreen.anyEntries(g);
+      case 'match':
+        return !!g.state.pending;
       case 'tactics':
         return !g.state.research.active || Object.keys(g.state.skills.owned).some((k) => g.canUpgradeSkill(k)) || g.state.wallet.whistles >= 200;
       case 'store':
@@ -282,6 +295,8 @@ export class App {
     if (act === 'tab') {
       this.tab = arg as TabId;
       this.render();
+      // 자동 스카우트가 다른 탭에 있을 때 찾아 둔 선수가 있으면 경기 탭에서 보여준다
+      if (this.tab === 'match') matchScreen.resumePending(this);
       return;
     }
     if (act === 'close' || act === 'overlay') {
@@ -289,7 +304,14 @@ export class App {
       return;
     }
     const modalAct = this.topModal()?.actions?.[act];
-    const handler = modalAct ?? SCREENS[this.tab].actions[act] ?? this.extraActions[act] ?? SHARED_ACTIONS[act] ?? BM_ACTIONS[act];
+    const handler =
+      modalAct ??
+      SCREENS[this.tab].actions[act] ??
+      this.extraActions[act] ??
+      SHARED_ACTIONS[act] ??
+      BM_ACTIONS[act] ??
+      // 다른 탭에서 띄운 창의 버튼일 수도 있다 (예: 자동 스카우트 중 탭을 옮긴 경우)
+      Object.values(SCREENS).find((s) => s.actions[act])?.actions[act];
     if (!handler) {
       console.warn('unknown action', act);
       return;

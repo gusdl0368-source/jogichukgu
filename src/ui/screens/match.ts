@@ -240,7 +240,14 @@ function openCompare(app: App): void {
   ui.cmpFull = false;
   const p = app.state.pending;
   const rare = !!p && isRare(app, p.tier);
-  app.openModal({ id: 'compare', render: () => renderCompare(app), dismissable: false, cls: rare ? 'rare-reveal' : 'reveal' });
+  // 자동 스카우트는 어느 탭에서든 비교 창을 띄우므로, 버튼 동작을 창에 직접 붙인다
+  app.openModal({
+    id: 'compare',
+    render: () => renderCompare(app),
+    dismissable: false,
+    cls: rare ? 'rare-reveal' : 'reveal',
+    actions: { sign: actions.sign, sell: actions.sell, 'cmp-full': actions['cmp-full'] },
+  });
   if (rare) {
     sfx('rare');
     confetti(app.root, 80);
@@ -378,8 +385,14 @@ function runAuto(app: App): void {
     if (cnt) cnt.innerHTML = `${pxIcon('contacts', 13)} ${fmt(g.state.wallet.contacts)}`;
   }
   if (r.status === 'paused') {
-    if (app.topModal()?.id === 'auto') app.closeModal();
-    openCompare(app);
+    if (app.tab === 'match') {
+      if (app.topModal()?.id === 'auto') app.closeModal();
+      openCompare(app);
+    } else {
+      // 다른 탭을 보고 있으면 방해하지 않는다: 알림만 주고 경기 탭에 돌아오면 비교 창을 띄운다
+      app.toast(`🔭 좋은 선수 발견! 경기 탭에서 확인하세요`);
+      app.refreshTabDots();
+    }
   } else if (app.topModal()?.live) app.renderModal();
   ui.autoTimer = setTimeout(() => runAuto(app), g.autoScoutInterval(app.now()));
 }
