@@ -3,12 +3,16 @@ import { RESEARCH, type ResearchEffect, type TreeId, researchCost, rushGemCost }
 import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, SPONSORS, dailyDeals, passReward } from '../data/shop';
 import { MAX_SKILL_LEVEL, SKILLS as SKILL_DEFS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../data/skills';
 import { DAILY_BONUS, DAILY_MISSIONS, GUIDE, type MissionKey } from '../data/missions';
+import {
+  ATTENDANCE, COLLECTION_MILESTONES, COMEBACK_AFTER_HOURS, CREST_CHANGE_GEMS, KITS, MAX_STADIUM_LEVEL, MAX_TRAIN, OFFERS,
+  OFFLINE_DOUBLE_ADS, STADIUM_PER_LEVEL, STREAK_BONUS, WHEEL, WHEEL_AD_SPINS, WHEEL_GEM_COST, collectionKey, stadiumUpgradeCost, trainCost,
+} from '../data/bm';
 import { randomCrest, randomUserTeamName } from '../data/teams';
 import { traitById, traitsFor } from '../data/traits';
 import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
 import { PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
 import { type MatchMods, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
-import { compareSlot, generatePlayer, generateSquad, teamPower } from './players';
+import { compareSlot, computeOverall, generatePlayer, generateSquad, teamPower } from './players';
 import { Rng } from './rng';
 import { type GameState, type MatchSummary, type TournamentOpponent, dayKey, newDaily, nextReset } from './state';
 import { type Currency, type Player, type Reward, type TeamPower } from './types';
@@ -45,7 +49,7 @@ export class Game {
   }
 
   powerBonus(): number {
-    return this.researchEffect('teamPower') + this.sponsorEffect('teamPower');
+    return this.researchEffect('teamPower') + this.sponsorEffect('teamPower') + this.collectionPower();
   }
 
   power(squad: Player[] = this.state.squad): TeamPower {
@@ -139,6 +143,7 @@ export class Game {
     const player = generatePlayer(rng, tier);
     this.state.pending = player;
     this.state.scoutCount++;
+    this.seeInCollection(player);
     this.progressMission('scout');
     return player;
   }
@@ -205,9 +210,9 @@ export class Game {
   stadiumRates(): { cashPerSec: number; contactEverySec: number; capHours: number } {
     const lv = this.state.league.level;
     return {
-      cashPerSec: ECONOMY.stadiumCashPerSec * incomeMult(lv) * (1 + this.researchEffect('stadiumCash') + this.sponsorEffect('stadiumCash')),
+      cashPerSec: ECONOMY.stadiumCashPerSec * incomeMult(lv) * (1 + this.researchEffect('stadiumCash') + this.sponsorEffect('stadiumCash') + this.state.stadiumLevel * STADIUM_PER_LEVEL.cash),
       contactEverySec: ECONOMY.stadiumContactEverySec / (1 + this.researchEffect('stadiumContacts')),
-      capHours: ECONOMY.stadiumCapHours + this.researchEffect('offlineCap'),
+      capHours: ECONOMY.stadiumCapHours + this.researchEffect('offlineCap') + this.state.stadiumLevel * STADIUM_PER_LEVEL.capHours,
     };
   }
 
@@ -344,6 +349,7 @@ export class Game {
         return { rank, promoted: false, level, reward };
       }
       this.newSeason(true);
+      this.addOffer('promotion', this.state.lastActive);
       return { rank, promoted: true, level: level + 1, reward };
     }
     this.newSeason(false);
@@ -359,6 +365,7 @@ export class Game {
   /** 게임을 안 켠 동안 지나간 경기를 최대 maxMatches까지 즉시 처리 */
   catchUp(now: number, maxMatches = 6): OfflineReport {
     const seconds = Math.max(0, (now - this.state.lastActive) / 1000);
+    if (seconds >= COMEBACK_AFTER_HOURS * 3600) this.addOffer('comeback', now);
     const matches: MatchSummary[] = [];
     const gap = this.matchDurationMs() + 5000;
     if (this.state.match && now - this.state.match.startedAt >= this.matchDurationMs()) {
@@ -648,7 +655,17 @@ export class Game {
   purchase(productId: string, now: number): boolean {
     const gem = GEM_PACKS.find((p) => p.id === productId);
     if (gem) {
-      this.add({ gems: gem.gems });
+      // 첫 구매는 젬 2배
+      this.add({ gems: this.state.firstBuyDone ? gem.gems : gem.gems * 2 });
+      this.state.firstBuyDone = true;
+      return true;
+    }
+    if (productId.startsWith('offer_')) {
+      const id = productId.slice(6) as keyof typeof OFFERS;
+      const o = this.state.offers.find((x) => x.id === id && !x.bought && x.endsAt > now);
+      if (!o) return false;
+      o.bought = true;
+      this.add(OFFERS[id].reward(this.state.league.level));
       return true;
     }
     const deals = dailyDeals(this.state.daily.deals.set, this.state.league.level);
@@ -799,6 +816,180 @@ export class Game {
     if (this.state.daily.superstarBought || this.state.pending) return false;
     this.state.daily.superstarBought = true;
     this.state.pending = this.superstarOffer(now);
+    this.seeInCollection(this.state.pending);
+    return true;
+  }
+
+  // ───────────────────────── 출석 ─────────────────────────
+
+  attendanceAvailable(now: number): boolean {
+    return this.state.attendance.lastKey !== dayKey(now);
+  }
+
+  /** 오늘 출석 보상. 어제도 왔으면 연속 출석, 7일 연속마다 보너스 */
+  claimAttendance(now: number): { reward: Reward; day: number; streak: number; bonus: boolean } | null {
+    const a = this.state.attendance;
+    const key = dayKey(now);
+    if (a.lastKey === key) return null;
+    a.streak = a.lastKey === dayKey(now - 24 * 3600 * 1000) ? a.streak + 1 : 1;
+    const day = a.day;
+    const reward = ATTENDANCE[day];
+    this.add(reward);
+    const bonus = a.streak > 0 && a.streak % 7 === 0;
+    if (bonus) this.add(STREAK_BONUS);
+    a.day = (a.day + 1) % ATTENDANCE.length;
+    a.lastKey = key;
+    a.total++;
+    return { reward, day, streak: a.streak, bonus };
+  }
+
+  // ───────────────────────── 경기장 증축 ─────────────────────────
+
+  stadiumUpgradeCost(): number {
+    return stadiumUpgradeCost(this.state.stadiumLevel);
+  }
+
+  upgradeStadium(now: number): boolean {
+    if (this.state.stadiumLevel >= MAX_STADIUM_LEVEL) return false;
+    // 지금까지 쌓인 수익은 예전 배율로 먼저 받아 둔다
+    this.collectStadium(now);
+    if (!this.spend({ cash: this.stadiumUpgradeCost() })) return false;
+    this.state.stadiumLevel++;
+    return true;
+  }
+
+  // ───────────────────────── 선수 훈련 ─────────────────────────
+
+  trainCost(slot: number): number {
+    const p = this.state.squad[slot];
+    return trainCost(p.tier, p.train ?? 0);
+  }
+
+  /** 주전 한 명의 모든 능력치 +1 (최대 10번). 선수를 바꾸면 훈련도 사라진다 */
+  trainPlayer(slot: number): boolean {
+    const p = this.state.squad[slot];
+    if (!p || (p.train ?? 0) >= MAX_TRAIN) return false;
+    if (!this.spend({ cash: this.trainCost(slot) })) return false;
+    const stats = { ...p.stats };
+    for (const k of Object.keys(stats) as (keyof typeof stats)[]) stats[k] = Math.min(99, stats[k] + 1);
+    this.state.squad[slot] = { ...p, stats, overall: computeOverall(p.position, stats), train: (p.train ?? 0) + 1 };
+    this.state.stats.trains = (this.state.stats.trains ?? 0) + 1;
+    return true;
+  }
+
+  // ───────────────────────── 도감 ─────────────────────────
+
+  seeInCollection(p: Player): void {
+    const key = collectionKey(p.nation, p.tier);
+    if (!this.state.collection.seen.includes(key)) this.state.collection.seen.push(key);
+  }
+
+  collectionCount(): number {
+    return this.state.collection.seen.length;
+  }
+
+  collectionPower(): number {
+    return COLLECTION_MILESTONES.slice(0, this.state.collection.claimed).reduce((a, m) => a + m.power, 0);
+  }
+
+  nextCollectionMilestone(): (typeof COLLECTION_MILESTONES)[number] | null {
+    return COLLECTION_MILESTONES[this.state.collection.claimed] ?? null;
+  }
+
+  claimCollection(): Reward | null {
+    const m = this.nextCollectionMilestone();
+    if (!m || this.collectionCount() < m.count) return null;
+    this.state.collection.claimed++;
+    this.add(m.reward);
+    return m.reward;
+  }
+
+  // ───────────────────────── 행운 룰렛 ─────────────────────────
+
+  wheelSpinsLeft(): { free: boolean; ads: number } {
+    const w = this.state.daily.wheel;
+    return { free: !w.free, ads: Math.max(0, WHEEL_AD_SPINS - w.ads) };
+  }
+
+  /** 룰렛 한 번. 반환값은 멈춘 칸 번호와 보상 */
+  spinWheel(kind: 'free' | 'ad' | 'gem'): { index: number; reward: Reward } | null {
+    const w = this.state.daily.wheel;
+    if (kind === 'free') {
+      if (w.free) return null;
+      w.free = true;
+    } else if (kind === 'ad') {
+      if (w.ads >= WHEEL_AD_SPINS) return null;
+      w.ads++;
+    } else {
+      if (!this.spend({ gems: WHEEL_GEM_COST })) return null;
+      w.gem++;
+    }
+    const index = this.rng().weighted(WHEEL.map((s) => s.weight));
+    const reward = WHEEL[index].reward(this.state.league.level);
+    this.add(reward);
+    return { index, reward };
+  }
+
+  // ───────────────────────── 한정 특가 ─────────────────────────
+
+  addOffer(id: keyof typeof OFFERS, now: number): void {
+    const existing = this.state.offers.find((o) => o.id === id && !o.bought && o.endsAt > now);
+    if (existing) return;
+    if (id === 'starter' && this.state.offers.some((o) => o.id === 'starter')) return;
+    this.state.offers = this.state.offers.filter((o) => o.endsAt > now || o.bought).slice(-10);
+    this.state.offers.push({ id, endsAt: now + OFFERS[id].hours * 3600 * 1000, bought: false });
+  }
+
+  activeOffers(now: number): { id: keyof typeof OFFERS; endsAt: number }[] {
+    return this.state.offers.filter((o) => !o.bought && o.endsAt > now);
+  }
+
+  // ───────────────────────── 오프라인 보상 2배 (광고) ─────────────────────────
+
+  offlineDoubleLeft(): number {
+    return Math.max(0, OFFLINE_DOUBLE_ADS - this.state.daily.ads.offline);
+  }
+
+  /** 방금 받은 운동장 수익만큼 한 번 더 */
+  doubleOffline(got: { cash: number; contacts: number }): boolean {
+    if (this.offlineDoubleLeft() <= 0) return false;
+    this.state.daily.ads.offline++;
+    this.add({ cash: got.cash, contacts: got.contacts });
+    return true;
+  }
+
+  // ───────────────────────── 구단 꾸미기 ─────────────────────────
+
+  kit() {
+    return KITS.find((k) => k.id === this.state.cosmetics.kit) ?? KITS[0];
+  }
+
+  buyKit(id: string): boolean {
+    const k = KITS.find((x) => x.id === id);
+    const c = this.state.cosmetics;
+    if (!k || c.owned.includes(id)) return false;
+    if (!this.spend({ gems: k.gems })) return false;
+    c.owned.push(id);
+    c.kit = id;
+    return true;
+  }
+
+  equipKit(id: string): boolean {
+    if (!this.state.cosmetics.owned.includes(id)) return false;
+    this.state.cosmetics.kit = id;
+    return true;
+  }
+
+  crestChangeCost(): number {
+    return this.state.cosmetics.crestChanges === 0 ? 0 : CREST_CHANGE_GEMS;
+  }
+
+  setCrest(icon: string, color: string): boolean {
+    if (!this.spend({ gems: this.crestChangeCost() })) return false;
+    this.state.crest = { icon, color };
+    this.state.cosmetics.crestChanges++;
+    const me = this.state.league.teams.find((t) => t.id === PLAYER_TEAM_ID);
+    if (me) me.crest = this.state.crest;
     return true;
   }
 

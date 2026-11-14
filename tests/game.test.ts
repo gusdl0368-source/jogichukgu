@@ -471,7 +471,10 @@ describe('상점과 패스', () => {
     const g = newGame();
     const gems = g.state.wallet.gems;
     expect(g.purchase(GEM_PACKS[0].id, T0)).toBe(true);
-    expect(g.state.wallet.gems).toBe(gems + GEM_PACKS[0].gems);
+    // 첫 구매는 2배
+    expect(g.state.wallet.gems).toBe(gems + GEM_PACKS[0].gems * 2);
+    expect(g.purchase(GEM_PACKS[0].id, T0)).toBe(true);
+    expect(g.state.wallet.gems).toBe(gems + GEM_PACKS[0].gems * 3);
   });
 
   it('스폰서는 한 번만, 효과가 적용된다', () => {
@@ -690,5 +693,139 @@ describe('그래픽 버전: 특성 포지션', () => {
       if (p.trait === 'gloves') expect(p.position).toBe('GK');
       if (p.position === 'GK') expect(['freekick', 'poacher', 'cannon', 'rocket', 'longshot']).not.toContain(p.trait);
     }
+  });
+});
+
+describe('BM: 리텐션 장치', () => {
+  it('출석: 하루 한 번, 다음 날 이어지면 연속 출석, 7일째 보너스', () => {
+    const g = newGame();
+    const gems0 = g.state.wallet.gems;
+    expect(g.claimAttendance(T0)!.day).toBe(0);
+    expect(g.claimAttendance(T0)).toBeNull();
+    for (let d = 1; d < 7; d++) {
+      const r = g.claimAttendance(T0 + d * 24 * HOUR)!;
+      expect(r.streak).toBe(d + 1);
+      if (d === 6) expect(r.bonus).toBe(true);
+    }
+    expect(g.state.attendance.day).toBe(0);
+    expect(g.state.wallet.gems).toBeGreaterThan(gems0 + 150);
+  });
+
+  it('출석: 하루 빠지면 연속이 1로 돌아간다', () => {
+    const g = newGame();
+    g.claimAttendance(T0);
+    expect(g.claimAttendance(T0 + 3 * 24 * HOUR)!.streak).toBe(1);
+  });
+
+  it('경기장 증축: 회비를 쓰고 수입·오프라인 상한이 늘어난다', () => {
+    const g = newGame();
+    const before = g.stadiumRates();
+    g.state.wallet.cash = 1e9;
+    expect(g.upgradeStadium(T0)).toBe(true);
+    const after = g.stadiumRates();
+    expect(after.cashPerSec).toBeGreaterThan(before.cashPerSec);
+    expect(after.capHours).toBeGreaterThan(before.capHours);
+    g.state.wallet.cash = 0;
+    expect(g.upgradeStadium(T0)).toBe(false);
+  });
+
+  it('선수 훈련: 모든 능력치 +1, 최대 10번, 비용은 점점 오른다', () => {
+    const g = newGame();
+    g.state.wallet.cash = 1e12;
+    const before = g.state.squad[9].overall;
+    const c1 = g.trainCost(9);
+    expect(g.trainPlayer(9)).toBe(true);
+    expect(g.trainCost(9)).toBeGreaterThan(c1);
+    expect(g.state.squad[9].overall).toBeGreaterThanOrEqual(before + 1);
+    for (let i = 0; i < 9; i++) g.trainPlayer(9);
+    expect(g.state.squad[9].train).toBe(10);
+    expect(g.trainPlayer(9)).toBe(false);
+  });
+
+  it('도감: 스카우트하면 기록되고, 단계 보상과 팀 파워 보너스', () => {
+    const g = newGame();
+    g.state.wallet.contacts = 5000;
+    for (let i = 0; i < 400 && g.collectionCount() < 5; i++) {
+      g.scout();
+      g.sellPending();
+    }
+    g.state.collection.seen = Array.from({ length: 6 }, (_, i) => `X${i}-0`);
+    const p0 = g.power().total;
+    expect(g.claimCollection()).not.toBeNull();
+    expect(g.power().total).toBeGreaterThan(p0);
+    expect(g.claimCollection()).toBeNull();
+  });
+
+  it('룰렛: 무료 1번, 광고 2번, 그다음은 젬', () => {
+    const g = newGame();
+    expect(g.spinWheel('free')).not.toBeNull();
+    expect(g.spinWheel('free')).toBeNull();
+    expect(g.spinWheel('ad')).not.toBeNull();
+    expect(g.spinWheel('ad')).not.toBeNull();
+    expect(g.spinWheel('ad')).toBeNull();
+    g.state.wallet.gems = 30;
+    expect(g.spinWheel('gem')).not.toBeNull();
+    expect(g.state.wallet.gems).toBeLessThan(30 + 101);
+  });
+});
+
+describe('BM: 수익화 장치', () => {
+  it('새 게임은 72시간 창단 패키지가 열려 있고, 한 번만 산다', () => {
+    const g = newGame();
+    expect(g.activeOffers(T0).map((o) => o.id)).toContain('starter');
+    expect(g.purchase('offer_starter', T0)).toBe(true);
+    expect(g.purchase('offer_starter', T0)).toBe(false);
+    expect(g.activeOffers(T0 + 80 * HOUR)).toHaveLength(0);
+  });
+
+  it('승격하면 24시간 승격 패키지가 생긴다', () => {
+    const g = newGame();
+    g.state.squad = generateSquad(new Rng(31), () => 3);
+    for (let i = 0; i < 18; i++) {
+      g.startMatch(T0);
+      g.finishMatch();
+    }
+    expect(g.state.league.level).toBe(1);
+    expect(g.state.offers.some((o) => o.id === 'promotion')).toBe(true);
+  });
+
+  it('오래 쉬다 오면 복귀 패키지', () => {
+    const g = newGame();
+    g.catchUp(T0 + 50 * HOUR);
+    expect(g.activeOffers(T0 + 50 * HOUR).some((o) => o.id === 'comeback')).toBe(true);
+  });
+
+  it('오프라인 보상 2배는 하루 3번', () => {
+    const g = newGame();
+    for (let i = 0; i < 3; i++) expect(g.doubleOffline({ cash: 10, contacts: 1 })).toBe(true);
+    expect(g.doubleOffline({ cash: 10, contacts: 1 })).toBe(false);
+  });
+
+  it('유니폼: 젬으로 사고 장착, 엠블럼은 첫 변경 무료', () => {
+    const g = newGame();
+    g.state.wallet.gems = 100;
+    expect(g.buyKit('red')).toBe(true);
+    expect(g.kit().id).toBe('red');
+    expect(g.buyKit('gold')).toBe(false);
+    expect(g.equipKit('blue')).toBe(true);
+    expect(g.crestChangeCost()).toBe(0);
+    expect(g.setCrest('🦁', '#e5484d')).toBe(true);
+    expect(g.crestChangeCost()).toBeGreaterThan(0);
+  });
+
+  it('v2 저장은 v3로 옮겨지고 가이드 위치가 보정된다', async () => {
+    const { migrate } = await import('../src/game/state');
+    const g = newGame();
+    const v2 = JSON.parse(serialize(g.state));
+    v2.version = 2;
+    v2.guideStep = 6;
+    for (const k of ['attendance', 'stadiumLevel', 'collection', 'offers', 'firstBuyDone', 'cosmetics']) delete v2[k];
+    delete v2.daily.wheel;
+    const m = migrate(v2)!;
+    expect(m.version).toBe(3);
+    expect(m.guideStep).toBe(8);
+    expect(m.cosmetics.kit).toBe('blue');
+    expect(m.collection.seen.length).toBeGreaterThan(0);
+    expect(new Game(m).spinWheel('free')).not.toBeNull();
   });
 });

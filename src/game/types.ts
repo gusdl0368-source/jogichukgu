@@ -40,6 +40,8 @@ export interface Player {
   nation: string;
   /** 특성 id (data/traits). 없으면 undefined */
   trait?: string;
+  /** 회비로 훈련한 횟수 (0~10). 레벨마다 모든 능력치 +1 */
+  train?: number;
   tier: number;
   stats: Stats;
   overall: number;
