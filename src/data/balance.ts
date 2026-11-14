@@ -91,7 +91,7 @@ export const ADS = {
 
 export const MATCH = {
   /** 경기 1판 실제 길이(초) */
-  realSeconds: 75,
+  realSeconds: 90,
   /** 90분 경기의 공격 기회(포제션) 수 */
   possessions: 28,
   winCash: 60,

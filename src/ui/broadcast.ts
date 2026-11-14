@@ -4,14 +4,19 @@ import { SKIN } from './avatar';
 import { BASE, MY_KIT, type TeamKit, drawPlayerSprite, oppKitFor } from './pitch';
 
 // TV 중계처럼 보이는 경기 화면.
-// 경기 결과(이벤트 목록)는 그대로 두고, 이벤트 사이를 실제 축구처럼 연출한다:
-// 패스가 오가고, 수비가 압박하고, 슛이 날아가고, 골이 들어가면 세리머니 후 킥오프.
+// 경기 결과(이벤트 목록)는 그대로 두고, 이벤트 사이를 실제 축구처럼 연출한다.
+// 원칙: 공은 항상 누군가의 발에 있거나, 정해진 두 선수 사이를 오간다.
+//  - 공격 팀은 가까운 동료에게 패스하며 한 단계씩 전진한다 (빌드업)
+//  - 받는 선수는 공이 오는 곳으로 달려가 받는다
+//  - 공을 뺏을 때는 가장 가까운 수비가 달려들어 그 자리에서 뺏는다
 // 좌표는 실제 경기장 규격(미터): 가로 105, 세로 68. 홈 팀은 +x 방향으로 공격한다.
 
 const PL = 105;
 const PW = 68;
 const CW = 400;
 const CH = 280;
+/** 한 번에 보낼 수 있는 패스 거리 (이보다 멀면 중간에 한 번 더 거친다) */
+const PASS_RANGE = 26;
 
 // ───────── 이벤트 시각 정하기 (해설·점수와 화면을 맞추기 위해 함께 쓴다) ─────────
 
@@ -26,14 +31,16 @@ export function eventTimes(events: MatchEvent[], durMs: number): number[] {
   events.forEach((e, i) => {
     if (i === 0) return t.push(0);
     const p = events[i - 1];
-    let gap = 0.9;
-    if (p.type === 'goal') gap = 4.2;
-    else if (p.type === 'halftime') gap = 2.2;
-    else if (e.type === 'chance') gap = 1.2;
-    else if (e.type === 'freekick' || e.type === 'penalty') gap = 1.7;
+    let gap = 1.2;
+    if (p.type === 'goal') gap = 4.6;
+    else if (p.type === 'halftime') gap = 2.4;
+    else if (p.type === 'kickoff') gap = 1.6;
+    else if (e.type === 'chance') gap = 1.5;
+    else if (e.type === 'pass') gap = 1.8;
+    else if (e.type === 'freekick' || e.type === 'penalty') gap = 1.8;
     else if ((e.type === 'goal' || e.type === 'save' || e.type === 'miss') && (p.type === 'freekick' || p.type === 'penalty')) gap = 1.5;
-    else if ((e.type === 'goal' || e.type === 'save' || e.type === 'miss') && p.type === 'chance') gap = 0.85;
-    else if (e.type === 'yellow' || e.type === 'red') gap = 0.6;
+    else if ((e.type === 'goal' || e.type === 'save' || e.type === 'miss') && p.type === 'chance') gap = 0.75;
+    else if (e.type === 'yellow' || e.type === 'red') gap = 0.7;
     else if (e.type === 'halftime') gap = 1.4;
     const nominal = (e.minute / 90) * sec;
     t.push(Math.max(nominal, t[i - 1] + gap));
@@ -71,7 +78,7 @@ interface Flight {
   t0: number;
   t1: number;
   peak: number;
-  /** 도착하면 공을 가질 선수 */
+  /** 도착하면 공을 가질 선수 (슛이면 null) */
   to: { team: 0 | 1; slot: number } | null;
 }
 
@@ -81,17 +88,23 @@ interface Ball {
   z: number;
   owner: { team: 0 | 1; slot: number } | null;
   flight: Flight | null;
+  /** 패스가 조금 빗나가 받는 선수에게 굴러가는 중 */
+  rollingTo: { team: 0 | 1; slot: number } | null;
   vx: number;
   vy: number;
 }
 
-type Override = { x: number; y: number; speed: number };
+type Who = { team: 0 | 1; slot: number };
+type Move = { x: number; y: number; speed: number; until: number };
+type Step = { t: number; run: () => void };
 
 const dirOf = (team: 0 | 1) => (team === 0 ? 1 : -1);
+const other = (team: 0 | 1) => (team === 0 ? 1 : 0) as 0 | 1;
 const goalX = (attackingTeam: 0 | 1) => (attackingTeam === 0 ? PL : 0);
 const ownGoalX = (team: 0 | 1) => (team === 0 ? 0 : PL);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** 포메이션 기본 자리 (미터) */
 function basePos(team: 0 | 1, slot: number): { x: number; y: number } {
@@ -114,7 +127,7 @@ export class BroadcastView {
   myKit: TeamKit = MY_KIT;
 
   private bodies: Body[][] = [[], []];
-  private ball: Ball = { x: PL / 2, y: PW / 2, z: 0, owner: null, flight: null, vx: 0, vy: 0 };
+  private ball: Ball = { x: PL / 2, y: PW / 2, z: 0, owner: null, flight: null, rollingTo: null, vx: 0, vy: 0 };
   private possession: 0 | 1 = 0;
   private events: MatchEvent[] | null = null;
   private times: number[] = [];
@@ -122,17 +135,21 @@ export class BroadcastView {
   private next = 0;
   private lastT = 0;
   private now = 0;
-  private overrides = new Map<string, Override>();
+  /** 이번 구간에 할 일 (시각 순) */
+  private plan: Step[] = [];
+  /** 특정 선수에게 준 이동 지시 (달려가서 받기, 침투, 압박) */
+  private moves = new Map<string, Move>();
   /** 세트피스·킥오프처럼 모두가 정해진 자리로 가야 할 때 */
   private arrangement: Map<string, { x: number; y: number }> | null = null;
   private celebration: { team: 0 | 1; slot: number; until: number; corner: { x: number; y: number } } | null = null;
   private card: { color: string; team: 0 | 1; slot: number; until: number } | null = null;
   private netShake: { side: number; until: number } | null = null;
+  private fade = 0;
   private referee = { x: PL / 2 - 6, y: PW / 2 + 8 };
   private cam = { x: PL / 2, y: PW / 2, w: 90, shake: 0 };
-  private camFocus: 'play' | 'wide' | 'tight' = 'wide';
-  private pendingKickoff: { at: number; team: 0 | 1 } | null = null;
   private seats: { x: number; y: number; c: string; skin: string; fill: number }[] = [];
+  /** 태클·반칙을 실제로 하는 수비 (공에 가장 가까운 선수) */
+  private challenger: Who | null = null;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -142,7 +159,7 @@ export class BroadcastView {
     this.g = this.canvas.getContext('2d')!;
     this.g.scale(dpr, dpr);
     this.g.imageSmoothingEnabled = false;
-    this.resetBodies(0);
+    this.kickoff(0, true);
     this.makeSeats();
   }
 
@@ -159,9 +176,23 @@ export class BroadcastView {
     if (events !== this.events) this.startMatch(events, durMs);
     this.now = elapsedMs / 1000;
     if (events) this.advance();
+    const bx = this.ball.x;
+    const by = this.ball.y;
+    this.runPlan();
     this.step(dt);
+    // 킥오프·골킥·프리킥처럼 장면이 바뀌어 공이 옮겨지면 방송처럼 짧게 화면을 끊어 준다
+    if (dist(bx, by, this.ball.x, this.ball.y) > 6 && !this.ball.flight) {
+      this.fade = 1;
+      this.cam.x = this.ball.x;
+      this.cam.y = this.ball.y;
+    }
     this.updateCamera(dt);
     this.render(meTeam, squads, crowd, t);
+    if (this.fade > 0) {
+      this.g.fillStyle = `rgba(10,14,24,${Math.min(1, this.fade) * 0.85})`;
+      this.g.fillRect(0, 0, CW, CH);
+      this.fade = Math.max(0, this.fade - dt * 3.5);
+    }
   }
 
   // ───────── 경기 흐름 ─────────
@@ -170,25 +201,30 @@ export class BroadcastView {
     this.events = events;
     this.times = events ? eventTimes(events, durMs) : [];
     this.next = 0;
-    this.overrides.clear();
+    this.plan = [];
+    this.moves.clear();
     this.arrangement = null;
     this.celebration = null;
     this.card = null;
-    this.pendingKickoff = null;
-    this.ball.flight = null;
-    this.resetBodies(0);
-    this.camFocus = 'wide';
+    this.challenger = null;
+    this.kickoff(0, true);
+    this.cam = { x: PL / 2, y: PW / 2, w: 90, shake: 0 };
   }
 
-  private resetBodies(kicking: 0 | 1): void {
-    for (const team of [0, 1] as const) {
-      this.bodies[team] = BASE.map((_, slot) => {
-        const p = kickoffPos(team, slot, team === kicking);
-        return { x: p.x, y: p.y, vx: 0, vy: 0, fallenUntil: 0, diveUntil: 0, diveDir: 0 };
-      });
+  /** 킥오프 자리로 (snap이면 바로) */
+  private kickoff(team: 0 | 1, snap: boolean): void {
+    for (const t of [0, 1] as const) {
+      if (!this.bodies[t].length || snap) {
+        this.bodies[t] = BASE.map((_, slot) => {
+          const p = kickoffPos(t, slot, t === team);
+          return { x: p.x, y: p.y, vx: 0, vy: 0, fallenUntil: 0, diveUntil: 0, diveDir: 0 };
+        });
+      }
     }
-    this.ball = { x: PL / 2, y: PW / 2, z: 0, owner: { team: kicking, slot: 9 }, flight: null, vx: 0, vy: 0 };
-    this.possession = kicking;
+    this.ball = { x: PL / 2, y: PW / 2, z: 0, owner: { team, slot: 9 }, flight: null, rollingTo: null, vx: 0, vy: 0 };
+    this.possession = team;
+    this.arrangement = null;
+    this.celebration = null;
   }
 
   /** 지난 이벤트를 처리하고 다음 이벤트까지의 연출을 준비한다 */
@@ -197,167 +233,298 @@ export class BroadcastView {
     let guard = 0;
     while (this.next < ev.length && this.times[this.next] / 1000 <= this.now && guard++ < 200) {
       const late = this.now - this.times[this.next] / 1000 > 1.5;
+      // 이전 구간의 남은 계획은 이벤트 순간에 정리한다
+      this.flushPlan();
       this.resolve(this.next, late);
       this.next++;
       if (this.next < ev.length) this.setup(this.next, this.times[this.next - 1] / 1000, this.times[this.next] / 1000, late);
     }
   }
 
-  private body(team: 0 | 1, slot: number): Body {
-    return this.bodies[team][slot];
+  private runPlan(): void {
+    while (this.plan.length && this.plan[0].t <= this.now) this.plan.shift()!.run();
   }
 
-  private carrier(): { team: 0 | 1; slot: number } | null {
-    return this.ball.owner;
+  /** 남은 계획 중 공 소유를 바꾸는 일은 바로 처리하고 나머지는 버린다 */
+  private flushPlan(): void {
+    this.plan = [];
+    if (this.ball.flight?.to) this.land(this.ball.flight.to);
+    if (this.ball.rollingTo) this.land(this.ball.rollingTo);
   }
 
-  /** 공을 from에서 (team, slot)에게 보낸다. 도착 시각 t1 */
-  private pass(team: 0 | 1, slot: number, t0: number, t1: number, lofted = false, at?: { x: number; y: number }): void {
-    const target = at ?? this.body(team, slot);
-    this.ball.flight = {
-      fx: this.ball.x, fy: this.ball.y, fz: 0,
-      tx: target.x, ty: target.y, tz: 0,
-      t0, t1: Math.max(t0 + 0.25, t1),
-      peak: lofted ? 3.2 : 0.15,
-      to: { team, slot },
-    };
-    this.ball.owner = null;
-    this.possession = team;
+  private at(t: number, run: () => void): void {
+    this.plan.push({ t, run });
+    this.plan.sort((a, b) => a.t - b.t);
   }
 
-  private shoot(t0: number, t1: number, tx: number, ty: number, tz: number, power = false): void {
-    this.ball.flight = { fx: this.ball.x, fy: this.ball.y, fz: 0.2, tx, ty, tz, t0, t1: Math.max(t0 + (power ? 0.3 : 0.38), t1), peak: power ? 0.4 : 1.2, to: null };
-    this.ball.owner = null;
+  private body(w: Who): Body {
+    return this.bodies[w.team][w.slot];
+  }
+
+  private key(w: Who): string {
+    return `${w.team}-${w.slot}`;
+  }
+
+  /** 공을 그 선수 발밑으로 */
+  private land(w: Who): void {
+    this.ball.flight = null;
+    this.ball.rollingTo = null;
+    this.ball.owner = w;
+    this.ball.z = 0;
+    this.possession = w.team;
+    this.moves.delete(this.key(w));
+  }
+
+  /** team 쪽에서 (x, y)에 가장 가까운 선수 */
+  private nearest(team: 0 | 1, x: number, y: number, outfield = true, except = -1): number {
+    let best = -1;
+    let bd = Infinity;
+    this.bodies[team].forEach((b, slot) => {
+      if ((outfield && slot === 0) || slot === except) return;
+      const d = dist(b.x, b.y, x, y);
+      if (d < bd) {
+        bd = d;
+        best = slot;
+      }
+    });
+    return best;
+  }
+
+  /**
+   * 패스: t0에 차서 t1에 도착. 받는 선수는 도착 지점으로 달려간다.
+   * 도착 지점은 받는 선수가 지금 있는 곳보다 조금 앞 (공을 향해 받으러 나오고, 공격 방향으로 한 발).
+   */
+  private passAt(t0: number, t1: number, to: Who, opts: { lofted?: boolean; point?: { x: number; y: number } } = {}): void {
+    this.at(t0, () => {
+      // 앞 패스가 아직 굴러가는 중이면 그 선수가 받은 걸로 치고, 공이 있는 자리에서 바로 찬다 (원터치)
+      if (this.ball.rollingTo) {
+        const bx = this.ball.x, by = this.ball.y;
+        this.land(this.ball.rollingTo);
+        this.ball.x = bx;
+        this.ball.y = by;
+      }
+      if (!this.ball.owner && !this.ball.flight) return;
+      const from = { x: this.ball.x, y: this.ball.y };
+      const r = this.body(to);
+      const p = opts.point ?? { x: clamp(r.x + dirOf(to.team) * 2, 2, PL - 2), y: clamp(r.y + (from.y - r.y) * 0.1, 2, PW - 2) };
+      const d = dist(from.x, from.y, p.x, p.y);
+      const lofted = opts.lofted ?? d > 30;
+      const dur = Math.max(0.35, Math.min(t1 - this.now, d / (lofted ? 17 : 19) + 0.15));
+      this.ball.flight = { fx: from.x, fy: from.y, fz: 0, tx: p.x, ty: p.y, tz: 0, t0: this.now, t1: this.now + dur, peak: lofted ? Math.min(6, d / 9) : 0.1, to };
+      this.ball.owner = null;
+      this.moves.set(this.key(to), { x: p.x, y: p.y, speed: Math.min(9, Math.max(3, dist(r.x, r.y, p.x, p.y) / dur + 0.5)), until: this.now + dur + 0.2 });
+    });
+  }
+
+  private shootAt(t0: number, t1: number, tx: number, ty: number, tz: number, power: boolean): void {
+    this.at(t0, () => {
+      this.ball.flight = { fx: this.ball.x, fy: this.ball.y, fz: 0.2, tx, ty, tz, t0: this.now, t1: Math.max(this.now + (power ? 0.3 : 0.4), t1), peak: power ? 0.3 : 1, to: null };
+      this.ball.owner = null;
+    });
+  }
+
+  /**
+   * 빌드업 경로: 지금 공 가진 선수에서 final까지, 패스 한 번에 PASS_RANGE 이내로 끊어서.
+   * 중간 선수는 "지금 위치에서 가깝고, 최종 목표에 더 가까워지는" 동료를 고른다.
+   */
+  private route(team: 0 | 1, fromSlot: number, finalSlot: number, finalPoint?: { x: number; y: number }): number[] {
+    const path: number[] = [];
+    let cur = fromSlot;
+    const fp = finalPoint ?? this.body({ team, slot: finalSlot });
+    for (let k = 0; k < 3; k++) {
+      if (cur === finalSlot) break;
+      const c = this.body({ team, slot: cur });
+      if (dist(c.x, c.y, fp.x, fp.y) <= PASS_RANGE || k === 2) {
+        path.push(finalSlot);
+        break;
+      }
+      let best = -1;
+      let score = Infinity;
+      this.bodies[team].forEach((b, slot) => {
+        if (slot === cur || slot === 0 || slot === finalSlot || path.includes(slot)) return;
+        const d1 = dist(c.x, c.y, b.x, b.y);
+        if (d1 < 7 || d1 > PASS_RANGE) return;
+        const d2 = dist(b.x, b.y, fp.x, fp.y);
+        if (d2 >= dist(c.x, c.y, fp.x, fp.y)) return;
+        const s = d2 + d1 * 0.3;
+        if (s < score) {
+          score = s;
+          best = slot;
+        }
+      });
+      if (best < 0) {
+        path.push(finalSlot);
+        break;
+      }
+      path.push(best);
+      cur = best;
+    }
+    return path;
+  }
+
+  /** route를 [s, e] 안에 시간 배분해서 패스 계획으로 만든다. 마지막 패스는 e에 도착 */
+  private planPasses(team: 0 | 1, path: number[], s: number, e: number, last?: { point: { x: number; y: number }; lofted?: boolean }): void {
+    if (!path.length) return;
+    // 패스 하나에 드는 시간: 공이 날아가는 시간 + 받고 다시 차는 시간
+    const legs = path.length;
+    const span = Math.max(0.5, e - s);
+    const per = Math.min(1.5, span / legs);
+    path.forEach((slot, idx) => {
+      const t1 = e - (legs - 1 - idx) * per;
+      const t0 = Math.max(s + 0.05, t1 - per * 0.75);
+      const isLast = idx === legs - 1;
+      this.passAt(t0, t1, { team, slot }, isLast && last ? { point: last.point, lofted: last.lofted } : {});
+    });
+  }
+
+  /** 지금 공이 상대 팀에게 있으면, 가장 가까운 선수가 먼저 가로챈다. 가로챈 선수를 돌려준다 */
+  private winBallFirst(team: 0 | 1, s: number, e: number): number {
+    const o = this.ball.owner;
+    if (o && o.team === team) return o.slot;
+    if (this.ball.flight?.to?.team === team) return this.ball.flight.to.slot;
+    // 공 근처의 우리 선수가 달려가서 뺏는다
+    const slot = this.nearest(team, this.ball.x, this.ball.y);
+    const t = s + Math.min(0.6, (e - s) * 0.3);
+    const b = this.body({ team, slot });
+    this.moves.set(this.key({ team, slot }), { x: this.ball.x, y: this.ball.y, speed: 9, until: t });
+    this.at(t, () => {
+      b.x += (this.ball.x - b.x) * 0.6;
+      b.y += (this.ball.y - b.y) * 0.6;
+      this.land({ team, slot });
+    });
+    return slot;
   }
 
   /** 다음 이벤트 i가 일어나기 전 [s, e] 동안의 연출을 준비한다 */
   private setup(i: number, s: number, e: number, instant: boolean): void {
     const ev = this.events![i];
     const prev = this.events![i - 1];
-    this.overrides.clear();
+    this.moves.clear();
+    this.challenger = null;
     if (instant) return;
-    const L = e - s;
 
-    // 골이 난 뒤에는 세리머니 → 제자리 → 킥오프
-    if (prev?.type === 'goal') {
-      const conceded = (prev.team === 0 ? 1 : 0) as 0 | 1;
-      this.pendingKickoff = { at: s + Math.min(2.8, L * 0.65), team: conceded };
-      return;
-    }
-    if (prev?.type === 'halftime') {
-      this.pendingKickoff = { at: s + Math.min(1.4, L * 0.5), team: 1 };
-      return;
+    // 골 뒤에는 세리머니 → 제자리 → 킥오프, 하프타임 뒤에는 후반 킥오프
+    if (prev?.type === 'goal' || prev?.type === 'halftime') {
+      const kicking = prev.type === 'goal' ? other(prev.team) : 1;
+      const resume = s + (prev.type === 'goal' ? Math.min(3.2, (e - s) * 0.7) : Math.min(1.6, (e - s) * 0.6));
+      this.at(resume, () => {
+        this.kickoff(kicking, false);
+        this.arrangement = new Map();
+        for (const t of [0, 1] as const) for (let slot = 0; slot < 11; slot++) this.arrangement.set(`${t}-${slot}`, kickoffPos(t, slot, t === kicking));
+      });
+      // 킥오프 직후 뒤로 한 번 돌리고 이벤트로 이어진다
+      this.at(resume + 0.6, () => {
+        this.arrangement = null;
+      });
+      if (ev.type === 'pass' || ev.type === 'chance') this.passAt(resume + 0.5, resume + 1.1, { team: kicking, slot: 6 });
+      if (ev.type !== 'pass') return;
     }
 
     const A = ev.team;
-    const D = (A === 0 ? 1 : 0) as 0 | 1;
+    const D = other(A);
     switch (ev.type) {
       case 'pass': {
-        // 같은 팀이 공을 돌린다: 중간 패스 한 번 + 이벤트 주인공에게 패스
-        const slot = ev.slot ?? 5;
-        const c = this.carrier();
-        if (L > 1.3 && c && c.team === A) {
-          const mids = [1, 2, 3, 4, 5, 6, 7].filter((x) => x !== slot && x !== c.slot);
-          const mid = mids[Math.floor(Math.random() * mids.length)];
-          this.pass(A, mid, s + 0.05, s + L * 0.45);
-          this.queued = { t: s + L * 0.5, fn: () => this.pass(A, slot, s + L * 0.5, e) };
-        } else this.pass(A, slot, s + 0.05, e);
+        // A팀 빌드업: (필요하면 먼저 공을 찾아오고) 가까운 동료에게 패스하며 전진
+        const start = this.winBallFirst(A, s, e);
+        const target = ev.slot ?? 5;
+        const path = this.route(A, start, target);
+        const begin = this.ball.owner?.team === A ? s + 0.4 : s + Math.min(0.8, (e - s) * 0.35);
+        this.planPasses(A, path, begin, e);
         break;
       }
       case 'tackle':
       case 'foul': {
-        // 수비수(이벤트 팀)가 공 가진 선수에게 달려든다
-        if (ev.slot !== undefined) this.overrides.set(`${A}-${ev.slot}`, { x: this.ball.x, y: this.ball.y, speed: 9.5 });
+        // 공 가진 쪽(D)이 드리블하고, A팀에서 가장 가까운 선수가 달려들어 뺏는다(반칙)
+        const carrier = this.ball.owner?.team === D ? this.ball.owner.slot : this.winBallFirst(D, s, Math.min(e, s + 0.8));
+        void carrier;
+        const ch = this.nearest(A, this.ball.x, this.ball.y);
+        this.challenger = { team: A, slot: ch };
         break;
       }
       case 'chance': {
-        // 슈터가 박스 안으로 침투하고, 공이 그 자리로 간다
-        const slot = ev.slot ?? 9;
+        // 슈터가 박스 쪽으로 침투하고, 마지막 패스가 그 자리로 들어간다
+        const shooter = ev.slot ?? 9;
+        const start = this.winBallFirst(A, s, e);
         const gx = goalX(A);
-        const runX = gx - dirOf(A) * (10 + Math.random() * 8);
-        const runY = PW / 2 + (Math.random() - 0.5) * 22;
-        this.overrides.set(`${A}-${slot}`, { x: runX, y: runY, speed: 9 });
-        const c = this.carrier();
-        if (c && c.team === A && c.slot === slot) {
+        const sb = this.body({ team: A, slot: shooter });
+        const runX = gx - dirOf(A) * rand(11, 17);
+        const runY = clamp(sb.y + (PW / 2 - sb.y) * 0.6 + rand(-4, 4), 14, PW - 14);
+        const point = { x: runX, y: runY };
+        const t0 = s + 0.1;
+        this.moves.set(this.key({ team: A, slot: shooter }), { x: runX, y: runY, speed: 8.5, until: e + 0.3 });
+        if (start === shooter) {
           // 직접 드리블 돌파
-          this.overrides.set(`${A}-${slot}`, { x: runX, y: runY, speed: 7.5 });
+          this.moves.set(this.key({ team: A, slot: shooter }), { x: runX, y: runY, speed: 7.5, until: e + 0.3 });
         } else {
-          const wing = slot === 8 || slot === 10;
-          this.pass(A, slot, s + 0.15, e, wing, { x: runX, y: runY });
+          const path = this.route(A, start, shooter, point);
+          const wing = shooter === 8 || shooter === 10;
+          this.planPasses(A, path, t0 + (this.ball.owner?.team === A ? 0.15 : 0.5), e, { point, lofted: wing && path.length === 1 });
         }
-        // 수비수 한 명이 따라붙는다
-        const marker = this.nearest(D, runX, runY, true);
-        if (marker >= 0) this.overrides.set(`${D}-${marker}`, { x: runX + dirOf(A) * 1.5, y: runY, speed: 8.5 });
-        this.camFocus = 'tight';
+        // 수비수 한 명이 슈터를 따라간다
+        const marker = this.nearest(D, runX, runY);
+        if (marker >= 0) this.moves.set(this.key({ team: D, slot: marker }), { x: runX - dirOf(A) * 2, y: runY + 1, speed: 8, until: e + 0.3 });
         break;
       }
       case 'goal':
       case 'miss':
       case 'save': {
         const shooterTeam = ev.type === 'save' ? D : A;
-        const keeperTeam = (shooterTeam === 0 ? 1 : 0) as 0 | 1;
+        const keeperTeam = other(shooterTeam);
         const gx = goalX(shooterTeam);
-        const k = this.body(keeperTeam, 0);
+        const kb = this.body({ team: keeperTeam, slot: 0 });
+        const t0 = s + 0.05;
         if (ev.type === 'goal') {
-          const ty = PW / 2 + (Math.random() < 0.5 ? -1 : 1) * (1.6 + Math.random() * 1.8);
-          this.shoot(s + 0.05, e, gx + dirOf(shooterTeam) * 1.2, ty, 0.4 + Math.random() * 1.6, !!ev.powerShot);
-          this.overrides.set(`${keeperTeam}-0`, { x: k.x, y: PW / 2 + (ty - PW / 2) * -0.6, speed: 4 });
+          const ty = PW / 2 + (Math.random() < 0.5 ? -1 : 1) * rand(1.5, 3.2);
+          this.shootAt(t0, e, gx + dirOf(shooterTeam) * 1.2, ty, rand(0.3, 2), !!ev.powerShot);
+          // 골키퍼는 반대쪽으로 몸을 날린다
+          this.at(t0 + 0.1, () => {
+            kb.diveUntil = e + 0.7;
+            kb.diveDir = ty > kb.y ? -1 : 1;
+          });
         } else if (ev.type === 'save') {
-          const ty = PW / 2 + (Math.random() - 0.5) * 5;
-          this.shoot(s + 0.05, e, gx - dirOf(shooterTeam) * 0.8, ty, 0.6 + Math.random(), false);
-          this.overrides.set(`${keeperTeam}-0`, { x: gx - dirOf(shooterTeam) * 1, y: ty, speed: 12 });
-          k.diveUntil = e + 0.6;
-          k.diveDir = ty > k.y ? 1 : -1;
+          const ty = PW / 2 + rand(-2.8, 2.8);
+          this.shootAt(t0, e, gx - dirOf(shooterTeam) * 0.9, ty, rand(0.4, 1.4), false);
+          this.moves.set(this.key({ team: keeperTeam, slot: 0 }), { x: gx - dirOf(shooterTeam) * 1, y: ty, speed: 11, until: e + 0.2 });
+          this.at(t0 + 0.15, () => {
+            kb.diveUntil = e + 0.6;
+            kb.diveDir = ty > kb.y ? 1 : -1;
+          });
         } else {
           const wide = Math.random() < 0.6;
-          const ty = wide ? PW / 2 + (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 3) : PW / 2 + (Math.random() - 0.5) * 6;
-          this.shoot(s + 0.05, e, gx + dirOf(shooterTeam) * 2, ty, wide ? 0.8 : 3.4, false);
+          const ty = wide ? PW / 2 + (Math.random() < 0.5 ? -1 : 1) * rand(4.6, 8) : PW / 2 + rand(-3, 3);
+          this.shootAt(t0, e, gx + dirOf(shooterTeam) * 2, ty, wide ? 0.8 : 3.4, false);
         }
-        this.camFocus = 'tight';
         break;
       }
-      case 'freekick': {
+      case 'freekick':
         this.setPiece(A, ev.slot ?? 9, false);
-        this.camFocus = 'tight';
         break;
-      }
-      case 'penalty': {
+      case 'penalty':
         this.setPiece(A, ev.slot ?? 9, true);
-        this.camFocus = 'tight';
-        break;
-      }
-      case 'halftime':
-      case 'fulltime':
-        this.camFocus = 'wide';
         break;
       default:
         break;
     }
   }
 
-  private queued: { t: number; fn: () => void } | null = null;
-
-  /** 세트피스 배치: 키커는 공 뒤, 수비벽(프리킥) 또는 박스 밖(페널티), 골키퍼는 골라인 */
+  /** 세트피스: 키커는 공 뒤, 수비벽(프리킥) 또는 박스 밖(페널티), 골키퍼는 골라인. 중계처럼 장면 전환 */
   private setPiece(A: 0 | 1, kicker: number, penalty: boolean): void {
-    const D = (A === 0 ? 1 : 0) as 0 | 1;
+    const D = other(A);
     const dir = dirOf(A);
     const gx = goalX(A);
-    const bx = penalty ? gx - dir * 11 : clamp(this.ball.x, 20, PL - 20);
-    const by = penalty ? PW / 2 : clamp(this.ball.y, 12, PW - 12);
-    if (!penalty) {
-      // 공은 상대 골문에서 22~30m 거리로
-      this.ball.x = gx - dir * (22 + Math.random() * 8);
-      this.ball.y = by;
+    if (penalty) {
+      this.ball.x = gx - dir * 11;
+      this.ball.y = PW / 2;
     } else {
-      this.ball.x = bx;
-      this.ball.y = by;
+      this.ball.x = gx - dir * rand(21, 28);
+      this.ball.y = clamp(this.ball.y, 16, PW - 16);
     }
     this.ball.owner = null;
     this.ball.flight = null;
+    this.ball.rollingTo = null;
     const arr = new Map<string, { x: number; y: number }>();
     arr.set(`${A}-${kicker}`, { x: this.ball.x - dir * 2.2, y: this.ball.y - 0.8 });
     arr.set(`${D}-0`, { x: gx - dir * 0.6, y: PW / 2 });
-    // 골대 쪽으로 가는 방향
     const vx = gx - this.ball.x;
     const vy = PW / 2 - this.ball.y;
     const len = Math.hypot(vx, vy) || 1;
@@ -369,7 +536,6 @@ export class BroadcastView {
         wall++;
         continue;
       }
-      // 나머지는 박스 근처 (페널티면 박스 밖)
       const spreadY = PW / 2 + ((slot % 5) - 2) * 6.5;
       const x = penalty ? boxEdge - dir * (1.5 + (slot % 4) * 2.2) : gx - dir * (8 + (slot % 4) * 3);
       arr.set(`${D}-${slot}`, { x, y: spreadY + 1.5 + (slot % 2) * 1.2 });
@@ -382,7 +548,7 @@ export class BroadcastView {
     }
     arr.set(`${A}-0`, { x: ownGoalX(A) + dir * 20, y: PW / 2 });
     this.arrangement = arr;
-    // 중계처럼 세트피스 장면으로 바로 넘어간다: 선수들은 자리에, 카메라는 공으로
+    // 중계처럼 세트피스 장면으로 바로 넘어간다
     for (const [key, p] of arr) {
       const [team, slot] = key.split('-').map(Number);
       const b = this.bodies[team][slot];
@@ -393,117 +559,125 @@ export class BroadcastView {
     }
     this.cam.x = this.ball.x + dir * 8;
     this.cam.y = this.ball.y;
-    this.cam.w = 52;
+    this.cam.w = 54;
+    // 키커가 공 쪽으로 달려가서 찬다 (결과 이벤트의 슛 직전)
+    this.possession = A;
   }
 
   /** 이벤트 i가 일어난 순간 */
   private resolve(i: number, late: boolean): void {
     const ev = this.events![i];
     const A = ev.team;
-    const D = (A === 0 ? 1 : 0) as 0 | 1;
-    this.queued = null;
+    const D = other(A);
     switch (ev.type) {
       case 'kickoff':
-        this.resetBodies(0);
-        this.camFocus = 'wide';
+        this.kickoff(0, true);
         break;
       case 'pass':
         this.arrangement = null;
-        this.ball.flight = null;
-        this.ball.owner = { team: A, slot: ev.slot ?? 5 };
-        this.possession = A;
-        if (late) this.snapNear(A, ev);
-        this.camFocus = 'play';
+        this.land({ team: A, slot: ev.slot ?? 5 });
+        if (late) this.snapShape(A);
         break;
-      case 'tackle':
+      case 'tackle': {
         this.arrangement = null;
-        this.ball.flight = null;
-        this.ball.owner = { team: A, slot: ev.slot ?? 2 };
-        this.possession = A;
-        this.camFocus = 'play';
+        const ch = this.challenger ?? { team: A, slot: this.nearest(A, this.ball.x, this.ball.y) };
+        const b = this.body(ch);
+        // 뺏는 순간 공 가까이에
+        b.x += (this.ball.x - b.x) * 0.7;
+        b.y += (this.ball.y - b.y) * 0.7;
+        this.land(ch);
         break;
+      }
       case 'foul': {
-        // 공을 가진 쪽(피해자)이 넘어지고, 그 팀이 공을 계속 갖는다
-        const c = this.carrier();
-        const victim = c && c.team === D ? c : { team: D, slot: 9 };
-        this.body(victim.team, victim.slot).fallenUntil = this.now + 1.5;
-        this.ball.owner = victim;
-        this.ball.flight = null;
-        this.possession = D;
-        const off = this.body(A, ev.slot ?? 2);
-        this.referee = { x: off.x - 4, y: off.y + 3 };
+        const victim = this.ball.owner?.team === D ? this.ball.owner : { team: D, slot: this.nearest(D, this.ball.x, this.ball.y) };
+        const ch = this.challenger ?? { team: A, slot: this.nearest(A, this.ball.x, this.ball.y) };
+        const cb = this.body(ch);
+        cb.x += (this.ball.x - cb.x) * 0.7;
+        cb.y += (this.ball.y - cb.y) * 0.7;
+        this.body(victim).fallenUntil = this.now + 1.5;
+        this.land(victim);
+        this.referee = { x: cb.x - 4, y: cb.y + 3 };
+        // 카드는 실제로 반칙한 선수에게
+        this.challenger = ch;
         break;
       }
       case 'yellow':
-      case 'red':
-        this.card = { color: ev.type === 'yellow' ? '#f5d90a' : '#e5484d', team: A, slot: ev.slot ?? 2, until: this.now + 1.8 };
+      case 'red': {
+        const who = this.challenger ?? { team: A, slot: ev.slot ?? 2 };
+        this.card = { color: ev.type === 'yellow' ? '#f5d90a' : '#e5484d', team: who.team, slot: who.slot, until: this.now + 1.8 };
         break;
-      case 'chance':
+      }
+      case 'chance': {
         this.arrangement = null;
-        this.ball.flight = null;
-        this.ball.owner = { team: A, slot: ev.slot ?? 9 };
-        this.possession = A;
-        break;
-      case 'freekick':
-      case 'penalty':
-        // 이미 setup에서 배치. 키커가 공을 찬다(다음 이벤트가 결과)
-        this.ball.owner = null;
-        this.possession = A;
-        this.queued = null;
-        if (this.events![i + 1]) {
-          // 결과 이벤트 연출이 setup에서 shoot을 걸기 전, 키커 위치를 공 옆으로
-          const k = this.body(A, ev.slot ?? 9);
-          k.x = this.ball.x - dirOf(A) * 1.2;
-          k.y = this.ball.y;
+        const shooter = { team: A, slot: ev.slot ?? 9 };
+        const sb = this.body(shooter);
+        // 공이 아직 오는 중이면 슈터가 받는 자리로 맞춘다
+        if (this.ball.flight?.to && this.ball.flight.to.slot === shooter.slot && this.ball.flight.to.team === A) {
+          sb.x = this.ball.flight.tx;
+          sb.y = this.ball.flight.ty;
+        }
+        this.land(shooter);
+        if (late) {
+          sb.x = goalX(A) - dirOf(A) * 14;
+          sb.y = PW / 2;
         }
         break;
+      }
+      case 'freekick':
+      case 'penalty': {
+        // 키커가 공 옆에 선다 (다음 결과 이벤트에서 찬다)
+        const k = this.body({ team: A, slot: ev.slot ?? 9 });
+        k.x = this.ball.x - dirOf(A) * 1;
+        k.y = this.ball.y;
+        this.possession = A;
+        break;
+      }
       case 'goal': {
         this.arrangement = null;
         const gx = goalX(A);
         this.ball.flight = null;
+        this.ball.rollingTo = null;
         this.ball.x = gx + dirOf(A) * 1.4;
         this.ball.z = 0.2;
         this.ball.owner = null;
         this.netShake = { side: A === 0 ? 1 : -1, until: this.now + 1.2 };
         const scorer = ev.slot ?? 9;
-        this.celebration = { team: A, slot: scorer, until: this.now + 3.2, corner: { x: gx - dirOf(A) * 1.5, y: this.body(A, scorer).y < PW / 2 ? 1.5 : PW - 1.5 } };
+        this.celebration = { team: A, slot: scorer, until: this.now + 3, corner: { x: gx - dirOf(A) * 2, y: this.body({ team: A, slot: scorer }).y < PW / 2 ? 2 : PW - 2 } };
         this.cam.shake = ev.powerShot ? 1 : 0.6;
-        this.camFocus = 'tight';
         break;
       }
       case 'save': {
         this.arrangement = null;
-        // 골키퍼가 잡거나 쳐낸다
-        this.ball.flight = null;
-        const k = this.body(A, 0);
-        this.ball.owner = { team: A, slot: 0 };
+        const k = this.body({ team: A, slot: 0 });
         this.ball.x = k.x;
         this.ball.y = k.y;
-        this.possession = A;
+        this.land({ team: A, slot: 0 });
         break;
       }
       case 'miss': {
         this.arrangement = null;
-        // 공은 밖으로 → 골킥
-        const shooterTeam = A;
-        const keeperTeam = D;
+        // 공은 밖으로 → 잠시 뒤 골킥
         this.ball.flight = null;
         this.ball.owner = null;
-        this.ball.vx = dirOf(shooterTeam) * 6;
+        this.ball.vx = dirOf(A) * 6;
         this.ball.vy = 0;
-        this.goalKick = { at: this.now + 0.9, team: keeperTeam };
+        const keeperTeam = D;
+        this.at(this.now + 0.9, () => {
+          const k = this.body({ team: keeperTeam, slot: 0 });
+          this.ball.x = ownGoalX(keeperTeam) + dirOf(keeperTeam) * 5.5;
+          this.ball.y = PW / 2;
+          k.x = this.ball.x - dirOf(keeperTeam) * 0.8;
+          k.y = this.ball.y;
+          this.land({ team: keeperTeam, slot: 0 });
+        });
         break;
       }
       case 'halftime':
-        this.arrangement = null;
-        this.celebration = null;
-        this.camFocus = 'wide';
-        break;
       case 'fulltime':
         this.arrangement = null;
-        this.ball.owner = null;
+        this.celebration = null;
         this.ball.flight = null;
-        this.camFocus = 'wide';
+        if (ev.type === 'fulltime') this.ball.owner = null;
         break;
     }
     if (late) {
@@ -511,41 +685,20 @@ export class BroadcastView {
       this.celebration = null;
       this.card = null;
       this.netShake = null;
-      if (ev.type === 'goal' || ev.type === 'halftime') {
-        const kick = (ev.type === 'goal' ? (A === 0 ? 1 : 0) : 1) as 0 | 1;
-        this.resetBodies(kick);
-      }
+      if (ev.type === 'goal') this.kickoff(other(A), true);
+      if (ev.type === 'halftime') this.kickoff(1, true);
     }
   }
 
-  private goalKick: { at: number; team: 0 | 1 } | null = null;
-
   /** 늦게 들어왔을 때 선수들을 공 근처 대형으로 바로 옮긴다 */
-  private snapNear(A: 0 | 1, ev: MatchEvent): void {
-    const bx = (ev.x ?? 0.5) * PL;
-    const by = (ev.y ?? 0.5) * PW;
+  private snapShape(A: 0 | 1): void {
     for (const team of [0, 1] as const) {
       this.bodies[team].forEach((b, slot) => {
-        const p = this.shapeTarget(team, slot, bx, by, team === A);
+        const p = this.shapeTarget(team, slot, this.ball.x, this.ball.y, team === A);
         b.x = p.x;
         b.y = p.y;
       });
     }
-  }
-
-  /** 수비 쪽에서 (x, y)에 가장 가까운 선수 */
-  private nearest(team: 0 | 1, x: number, y: number, outfield: boolean): number {
-    let best = -1;
-    let bd = Infinity;
-    this.bodies[team].forEach((b, slot) => {
-      if (outfield && slot === 0) return;
-      const d = dist(b.x, b.y, x, y);
-      if (d < bd) {
-        bd = d;
-        best = slot;
-      }
-    });
-    return best;
   }
 
   /** 대형 유지: 공 위치와 공격/수비 상황에 따라 블록이 움직인다 */
@@ -554,135 +707,96 @@ export class BroadcastView {
     const dir = dirOf(team);
     if (slot === 0) {
       const gx = ownGoalX(team);
-      return { x: gx + dir * (attacking ? 9 : 3) + (bx - PL / 2) * 0.04, y: PW / 2 + (by - PW / 2) * 0.25 };
+      return { x: gx + dir * (attacking ? 10 : 3) + (bx - PL / 2) * 0.05, y: PW / 2 + (by - PW / 2) * 0.22 };
     }
-    const forward = attacking ? 7 : -5;
-    const runner = attacking && (slot === 8 || slot === 9 || slot === 10) ? 5 : 0;
-    const x = b.x + (bx - PL / 2) * 0.55 + dir * (forward + runner);
-    const y = b.y + (by - PW / 2) * 0.28;
-    return { x: clamp(x, 3, PL - 3), y: clamp(y, 3, PW - 3) };
+    // 공을 가진 팀은 라인을 올리고 넓게, 수비 팀은 내리고 좁게
+    const shift = (bx - PL / 2) * 0.6;
+    const push = attacking ? 6 : -4;
+    const runner = attacking && (slot === 8 || slot === 9 || slot === 10) ? 4 : 0;
+    const width = attacking ? 1.1 : 0.8;
+    const x = b.x + shift + dir * (push + runner);
+    const y = PW / 2 + (b.y - PW / 2) * width + (by - PW / 2) * 0.3;
+    return { x: clamp(x, 4, PL - 4), y: clamp(y, 3, PW - 3) };
   }
 
   // ───────── 물리 ─────────
 
   private step(dt: number): void {
     const now = this.now;
-    if (this.queued && now >= this.queued.t) {
-      const q = this.queued;
-      this.queued = null;
-      q.fn();
-    }
-    // 세트피스 결과 슛: 키커가 차는 순간 (결과 이벤트 setup이 shoot을 걸었다면 그대로)
-    if (this.pendingKickoff && now >= this.pendingKickoff.at) {
-      const team = this.pendingKickoff.team;
-      this.pendingKickoff = null;
-      this.celebration = null;
-      this.arrangement = null;
-      this.ball = { x: PL / 2, y: PW / 2, z: 0, owner: { team, slot: 9 }, flight: null, vx: 0, vy: 0 };
-      this.possession = team;
-      this.camFocus = 'wide';
-    }
-    if (this.goalKick && now >= this.goalKick.at) {
-      const team = this.goalKick.team;
-      this.goalKick = null;
-      const k = this.body(team, 0);
-      this.ball = { x: ownGoalX(team) + dirOf(team) * 5, y: PW / 2, z: 0, owner: { team, slot: 0 }, flight: null, vx: 0, vy: 0 };
-      k.x = this.ball.x - dirOf(team) * 0.8;
-      k.y = this.ball.y;
-      this.possession = team;
-      this.camFocus = 'play';
-    }
-
-    // 골 세리머니 끝나면 모두 킥오프 자리로
-    const kickoffSoon = this.pendingKickoff && this.pendingKickoff.at - now < 1.6;
     const bx = this.ball.x;
     const by = this.ball.y;
-    const carrier = this.ball.owner;
-    // 수비 쪽 압박 담당: 공에 가장 가까운 선수
-    const defTeam = (this.possession === 0 ? 1 : 0) as 0 | 1;
-    const presser = this.nearest(defTeam, bx, by, true);
+    const owner = this.ball.owner;
+    const defTeam = other(this.possession);
+    // 압박: 수비 쪽에서 공에 가장 가까운 선수 (태클 담당이 있으면 그 선수)
+    const presser = this.challenger && this.challenger.team === defTeam ? this.challenger.slot : this.nearest(defTeam, bx, by);
+    const pressSpeed = this.challenger ? 8.5 : 6.5;
 
     for (const team of [0, 1] as const) {
       const dir = dirOf(team);
       this.bodies[team].forEach((b, slot) => {
         const key = `${team}-${slot}`;
-        let tx: number;
-        let ty: number;
-        let speed = 6.5;
-        const arr = this.arrangement?.get(key);
-        const ov = this.overrides.get(key);
-        if (b.fallenUntil > now) {
-          b.vx *= 0.8;
-          b.vy *= 0.8;
+        if (b.fallenUntil > now || b.diveUntil > now) {
+          b.vx *= 0.85;
+          b.vy *= 0.85;
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
           return;
         }
-        if (kickoffSoon) {
-          const p = kickoffPos(team, slot, team === this.pendingKickoff!.team);
-          tx = p.x;
-          ty = p.y;
-          speed = 7;
-        } else if (this.celebration) {
+        let tx: number;
+        let ty: number;
+        let speed = 6;
+        const arr = this.arrangement?.get(key);
+        const mv = this.moves.get(key);
+        if (this.celebration) {
           const c = this.celebration;
-          const scorer = this.body(c.team, c.slot);
+          const scorer = this.body({ team: c.team, slot: c.slot });
           if (team === c.team && slot === c.slot) {
             tx = c.corner.x;
             ty = c.corner.y;
-            speed = 8.5;
+            speed = 8;
           } else if (team === c.team && slot !== 0) {
             tx = scorer.x - dir * (1.5 + (slot % 3));
             ty = scorer.y + ((slot % 5) - 2) * 1.3;
-            speed = 8;
+            speed = 7.5;
           } else {
             const p = kickoffPos(team, slot, false);
             tx = p.x;
             ty = p.y;
-            speed = 3;
+            speed = 2.5;
           }
         } else if (arr) {
           tx = arr.x;
           ty = arr.y;
-          speed = 8;
-        } else if (ov) {
-          tx = ov.x;
-          ty = ov.y;
-          speed = ov.speed;
-          // 압박 담당은 공 가진 선수를 계속 쫓는다
-          if (carrier && carrier.team !== team) {
-            const cb = this.body(carrier.team, carrier.slot);
-            if (dist(ov.x, ov.y, cb.x, cb.y) < 20) {
-              tx = cb.x - dirOf(carrier.team) * -1.2;
-              ty = cb.y;
-            }
-          }
-        } else if (carrier && carrier.team === team && carrier.slot === slot) {
-          // 공 가진 선수: 천천히 전진 드리블
-          tx = b.x + dir * 3;
-          ty = b.y + (PW / 2 - b.y) * 0.05;
-          speed = 4.5;
-        } else if (team === defTeam && slot === presser && carrier) {
-          const cb = this.body(carrier.team, carrier.slot);
-          tx = cb.x - dirOf(carrier.team) * -1.4;
-          ty = cb.y;
-          speed = 7.5;
-        } else if (this.ball.flight?.to && this.ball.flight.to.team === team && this.ball.flight.to.slot === slot) {
-          // 패스 받는 선수는 공이 오는 곳으로
-          tx = this.ball.flight.tx;
-          ty = this.ball.flight.ty;
-          speed = 8;
+          speed = 7;
+        } else if (mv && mv.until > now) {
+          tx = mv.x;
+          ty = mv.y;
+          speed = mv.speed;
+        } else if (owner && owner.team === team && owner.slot === slot) {
+          // 공 가진 선수: 앞으로 드리블 (빈 공간 쪽으로 살짝)
+          tx = b.x + dir * 4;
+          ty = b.y + (PW / 2 - b.y) * 0.08;
+          speed = 4;
+        } else if (team === defTeam && slot === presser && (owner || this.ball.flight)) {
+          // 공 가진 선수 앞을 막는다 (골문 쪽에 선다)
+          const ob = owner ? this.body(owner) : { x: bx, y: by };
+          tx = ob.x - dirOf(defTeam) * 1.5;
+          ty = ob.y;
+          speed = pressSpeed;
         } else {
           const p = this.shapeTarget(team, slot, bx, by, team === this.possession);
-          // 살짝씩 다르게 움직여서 기계처럼 보이지 않게
-          tx = p.x + Math.sin(now * 0.7 + slot * 1.9 + team) * 1.2;
-          ty = p.y + Math.cos(now * 0.6 + slot * 2.3 + team) * 1.4;
+          tx = p.x;
+          ty = p.y;
+          speed = 5.5;
         }
-        // 목표로 향하는 속도 (최고 속도 제한, 부드러운 가속)
         const dx = tx - b.x;
         const dy = ty - b.y;
         const d = Math.hypot(dx, dy);
-        const want = d < 0.4 ? 0 : Math.min(speed, d * 2.2);
+        // 가까우면 천천히 멈추고, 멀면 최고 속도까지
+        const want = d < 0.3 ? 0 : Math.min(speed, d * 1.8);
         const wvx = d > 0 ? (dx / d) * want : 0;
         const wvy = d > 0 ? (dy / d) * want : 0;
-        const a = Math.min(1, dt * 5);
+        const a = Math.min(1, dt * 4);
         b.vx += (wvx - b.vx) * a;
         b.vy += (wvy - b.vy) * a;
         b.x = clamp(b.x + b.vx * dt, -2, PL + 2);
@@ -694,27 +808,48 @@ export class BroadcastView {
     const f = this.ball.flight;
     if (f) {
       const p = clamp((now - f.t0) / (f.t1 - f.t0), 0, 1);
-      if (now < f.t0) {
-        // 아직 차기 전: 키커 발밑
-      } else {
-        this.ball.x = f.fx + (f.tx - f.fx) * p;
-        this.ball.y = f.fy + (f.ty - f.fy) * p;
-        this.ball.z = f.fz + (f.tz - f.fz) * p + f.peak * 4 * p * (1 - p);
-        if (p >= 1) {
-          this.ball.flight = null;
-          this.ball.z = f.tz;
-          if (f.to) {
-            this.ball.owner = f.to;
-            this.ball.z = 0;
-          }
+      this.ball.x = f.fx + (f.tx - f.fx) * p;
+      this.ball.y = f.fy + (f.ty - f.fy) * p;
+      this.ball.z = f.fz + (f.tz - f.fz) * p + f.peak * 4 * p * (1 - p);
+      if (p >= 1) {
+        this.ball.flight = null;
+        this.ball.z = f.tz;
+        if (f.to) {
+          // 받는 선수가 가까우면 바로 받고, 아니면 그쪽으로 굴러간다
+          const r = this.body(f.to);
+          if (dist(r.x, r.y, this.ball.x, this.ball.y) < 2.2) this.land(f.to);
+          else this.ball.rollingTo = f.to;
         }
       }
+    } else if (this.ball.rollingTo) {
+      const r = this.body(this.ball.rollingTo);
+      const d = dist(r.x, r.y, this.ball.x, this.ball.y);
+      if (d < 1.2) this.land(this.ball.rollingTo);
+      else {
+        const sp = Math.min(d, 7 * dt);
+        this.ball.x += ((r.x - this.ball.x) / d) * sp;
+        this.ball.y += ((r.y - this.ball.y) / d) * sp;
+        // 받는 선수도 공 쪽으로
+        this.moves.set(this.key(this.ball.rollingTo), { x: this.ball.x, y: this.ball.y, speed: 8, until: now + 0.3 });
+      }
     } else if (this.ball.owner) {
-      const o = this.body(this.ball.owner.team, this.ball.owner.slot);
+      const o = this.body(this.ball.owner);
       const dir = dirOf(this.ball.owner.team);
-      this.ball.x = o.x + dir * 0.7 + Math.sin(now * 9) * 0.15;
-      this.ball.y = o.y + 0.3;
-      this.ball.z = 0;
+      const sp = Math.hypot(o.vx, o.vy);
+      // 드리블: 발 앞에서 살짝 튕긴다
+      const fx = o.x + dir * (0.6 + (sp > 1 ? Math.abs(Math.sin(now * 7)) * 0.5 : 0));
+      const fy = o.y + 0.25;
+      // 발밑에서 멀리 있으면 (태클로 뺏었거나 흘러온 공) 순간이동하지 않고 끌고 온다
+      const gap = dist(fx, fy, this.ball.x, this.ball.y);
+      if (gap > 1.5) {
+        const sp2 = Math.min(gap, 16 * dt);
+        this.ball.x += ((fx - this.ball.x) / gap) * sp2;
+        this.ball.y += ((fy - this.ball.y) / gap) * sp2;
+      } else {
+        this.ball.x = fx;
+        this.ball.y = fy;
+      }
+      this.ball.z = Math.max(0, this.ball.z - dt * 4);
     } else {
       // 굴러가는 공
       this.ball.x += this.ball.vx * dt;
@@ -723,27 +858,28 @@ export class BroadcastView {
       this.ball.vy *= 1 - dt * 1.2;
       this.ball.z = Math.max(0, this.ball.z - dt * 3);
     }
+    if (this.celebration && this.celebration.until < now) this.celebration = null;
 
     // 심판: 공에서 조금 떨어져 따라다닌다
-    const rx = clamp(this.ball.x - 7, 4, PL - 4);
-    const ry = clamp(this.ball.y + (this.ball.y < PW / 2 ? 9 : -9), 4, PW - 4);
-    this.referee.x += (rx - this.referee.x) * Math.min(1, dt * 1.5);
-    this.referee.y += (ry - this.referee.y) * Math.min(1, dt * 1.5);
+    const rx = clamp(this.ball.x - 8, 4, PL - 4);
+    const ry = clamp(this.ball.y + (this.ball.y < PW / 2 ? 10 : -10), 4, PW - 4);
+    this.referee.x += (rx - this.referee.x) * Math.min(1, dt * 1.2);
+    this.referee.y += (ry - this.referee.y) * Math.min(1, dt * 1.2);
   }
 
   // ───────── 카메라 ─────────
 
   private updateCamera(dt: number): void {
-    const lead = this.ball.owner ? dirOf(this.ball.owner.team) * 6 : 0;
-    const focusW = this.camFocus === 'wide' ? 96 : this.camFocus === 'tight' ? 52 : 66;
+    // 공을 부드럽게 따라가고, 박스 근처에서만 살짝 확대한다
+    const nearGoal = this.ball.x < 25 || this.ball.x > PL - 25;
+    const focusW = this.celebration ? 58 : nearGoal ? 58 : 68;
+    const lead = this.ball.owner ? dirOf(this.ball.owner.team) * 5 : 0;
     const tx = this.ball.x + lead;
     const ty = this.ball.y;
-    const a = Math.min(1, dt * 2.2);
-    this.cam.w += (focusW - this.cam.w) * Math.min(1, dt * 1.5);
-    this.cam.x += (tx - this.cam.x) * a;
-    this.cam.y += (ty - this.cam.y) * a;
+    this.cam.w += (focusW - this.cam.w) * Math.min(1, dt * 0.8);
+    this.cam.x += (tx - this.cam.x) * Math.min(1, dt * 1.6);
+    this.cam.y += (ty - this.cam.y) * Math.min(1, dt * 1.2);
     const viewH = (this.cam.w * CH) / CW;
-    // 경기장 밖(관중석)까지만 보이게
     this.cam.x = clamp(this.cam.x, this.cam.w / 2 - 12, PL + 12 - this.cam.w / 2);
     this.cam.y = clamp(this.cam.y, viewH / 2 - 14, PW + 14 - viewH / 2);
     this.cam.shake = Math.max(0, this.cam.shake - dt * 1.4);
@@ -963,7 +1099,7 @@ export class BroadcastView {
     // 공 가진 선수 이름 (중계 화면처럼)
     const o = this.ball.owner;
     if (o) {
-      const b = this.body(o.team, o.slot);
+      const b = this.body(o);
       const p = squads[o.team][o.slot];
       if (p) {
         const name = p.name.replace(/^'.*' /, '');
