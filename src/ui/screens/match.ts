@@ -7,11 +7,12 @@ import type { ActionHandler, App } from '../app';
 import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../cards';
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
 import { confetti } from '../effects';
-import { sfx } from '../sound';
+import { setCrowd, sfx } from '../sound';
 import { renderQuickBar, renderStadiumUpgrade, renderTraining } from '../bm';
 import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } from '../shared';
 import { STYLES, type TacticStyle } from '../../game/match';
 import { drawFullTime } from '../pitch';
+import { eventTimes } from '../broadcast';
 import { pxIcon } from '../icons';
 import { pixelize } from '../pixelEmoji';
 import { rewardText } from '../dom';
@@ -71,9 +72,11 @@ export function lifecycle(app: App, now: number): void {
 function liveEvents(app: App, now: number): MatchEvent[] {
   const m = app.state.match;
   if (!m) return [];
-  const elapsed = app.game.matchElapsed(now);
-  const minute = elapsed * 90;
-  return m.result.events.filter((e) => (e.type === 'fulltime' ? elapsed >= 1 : e.minute <= minute));
+  const dur = app.game.matchDurationMs();
+  const elapsed = now - m.startedAt;
+  const times = eventTimes(m.result.events, dur);
+  // 화면 속 장면과 같은 시각에 해설·점수가 바뀌도록 같은 시간표를 쓴다
+  return m.result.events.filter((_, i) => times[i] <= elapsed);
 }
 
 function liveScore(app: App, events: MatchEvent[]): [number, number] {
@@ -174,6 +177,8 @@ export function mounted(app: App): void {
 export function tick(app: App, now: number): void {
   const s = app.state;
   const m = s.match;
+  // 경기 중일 때만 관중 함성
+  setCrowd(m ? Math.max(0.15, TIERS[s.league.level].crowd) : 0, app.pitch.excitement());
   const clock = app.root.querySelector('#clock');
   const score = app.root.querySelector('#score');
   const comm = app.root.querySelector('#commentary');
@@ -201,13 +206,15 @@ export function tick(app: App, now: number): void {
     const meScored = last?.type === 'goal' && last.team === (m.home ? 0 : 1);
     sfx(meScored ? 'goal' : 'concede');
     const wrap = app.root.querySelector('#pitch-wrap');
-    if (wrap) {
+    if (wrap && last?.type === 'goal') {
+      // TV 중계 자막처럼 아래에서 올라오는 득점 배너
+      const squad = last.team === (m.home ? 0 : 1) ? s.squad : s.league.teams.find((x) => x.id === m.opponentId)?.squad;
+      const scorer = last.slot !== undefined ? squad?.[last.slot] : undefined;
       const el = document.createElement('div');
-      el.className = 'goal-flash';
-      el.textContent = 'GOAL';
-      if (!meScored) el.style.textShadow = '0 4px 0 #b9363a, 0 0 20px rgba(0,0,0,.5)';
+      el.className = `goal-banner ${meScored ? 'mine' : 'theirs'}`;
+      el.innerHTML = `<b>GOAL!</b> ${esc(scorer ? shortName(scorer) : '')} <span>${Math.floor(app.game.matchElapsed(now) * 90)}'</span>`;
       wrap.appendChild(el);
-      setTimeout(() => el.remove(), 1700);
+      setTimeout(() => el.remove(), 3200);
     }
   }
 }
@@ -221,9 +228,8 @@ export function draw(app: App, t: number): void {
   const oppTeam = m ? s.league.teams.find((x) => x.id === m.opponentId) : myFixture(s.league)?.opponent;
   const oppSquad = oppTeam?.squad ?? s.squad;
   const squads: [Player[], Player[]] = myTeam === 0 ? [s.squad, oppSquad] : [oppSquad, s.squad];
-  const events = m ? liveEvents(app, Date.now()) : [];
-  const last = events[events.length - 1];
-  app.pitch.draw(events, myTeam as 0 | 1, squads, t, TIERS[s.league.level].crowd, last?.type === 'goal');
+  const elapsed = m ? Date.now() - m.startedAt : 0;
+  app.pitch.draw(m ? m.result.events : null, elapsed, app.game.matchDurationMs(), myTeam as 0 | 1, squads, TIERS[s.league.level].crowd, t);
   const scene = app.root.querySelector<HTMLCanvasElement>('#ft-scene');
   if (scene && ui.banner) drawFullTime(scene, ui.banner.summary.outcome, s.squad, t, app.pitch.myKit);
 }

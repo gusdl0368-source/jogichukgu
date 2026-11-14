@@ -4,7 +4,7 @@ import { loadLocal } from './storage';
 import { App } from './ui/app';
 import * as matchScreen from './ui/screens/match';
 import { connectCloud, openEnding, openOffline, openTutorial } from './ui/shared';
-import { setSoundEnabled } from './ui/sound';
+import { setCrowd, setSoundEnabled } from './ui/sound';
 import { startupPopups } from './ui/bm';
 
 const game = new Game(loadLocal() ?? newGameState(Date.now()));
@@ -36,7 +36,10 @@ function frame(t: number): void {
 requestAnimationFrame(frame);
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') app.save(true);
+  if (document.visibilityState === 'hidden') {
+    app.save(true);
+    setCrowd(0, 0);
+  }
   else {
     // 돌아오면 그동안 끝난 경기를 처리
     const r = game.catchUp(Date.now());

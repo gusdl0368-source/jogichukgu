@@ -120,3 +120,45 @@ export function sfx(name: Sfx): void {
       break;
   }
 }
+
+// ───────── 경기장 함성 (계속 깔리는 배경음) ─────────
+
+let crowdNode: { gain: GainNode; filter: BiquadFilterNode } | null = null;
+
+/**
+ * level: 관중 수 (0~1, 0이면 끔), excite: 지금 장면의 흥분도 (0~1).
+ * 찬스면 함성이 커지고 밝아진다.
+ */
+export function setCrowd(level: number, excite: number): void {
+  if (!enabled() || !unlocked || level <= 0) {
+    if (crowdNode && ctx) crowdNode.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    return;
+  }
+  const a = audio();
+  if (!a) return;
+  if (!crowdNode) {
+    const len = a.sampleRate * 2;
+    const buf = a.createBuffer(1, len, a.sampleRate);
+    const d = buf.getChannelData(0);
+    // 갈색 잡음: 웅성거림처럼 들린다
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+      d[i] = last * 3.5;
+    }
+    const src = a.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const filter = a.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 700;
+    const gain = a.createGain();
+    gain.gain.value = 0;
+    src.connect(filter).connect(gain).connect(a.destination);
+    src.start();
+    crowdNode = { gain, filter };
+  }
+  const target = (0.05 + level * 0.12) * (0.5 + excite);
+  crowdNode.gain.gain.setTargetAtTime(target, a.currentTime, 0.35);
+  crowdNode.filter.frequency.setTargetAtTime(600 + excite * 1400, a.currentTime, 0.3);
+}

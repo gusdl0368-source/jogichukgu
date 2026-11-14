@@ -860,3 +860,24 @@ describe('BM: 결제 단계별 체감', () => {
     expect(aiSide(team, 6, 1000).power.total).toBe(aiSide(team, 0, 0).power.total);
   });
 });
+
+describe('중계 화면: 이벤트 시간표', () => {
+  it('시간은 순서대로, 경기 시간 안에, 골 뒤에는 세리머니 시간이 있다', async () => {
+    const { eventTimes } = await import('../src/ui/broadcast');
+    const rng = new Rng(41);
+    for (let i = 0; i < 50; i++) {
+      const a = generateSquad(rng, () => 3);
+      const b = generateSquad(rng, () => 3);
+      const r = simulateMatch({ name: 'A', squad: a, power: teamPower(a), mods: NO_MODS }, { name: 'B', squad: b, power: teamPower(b), mods: NO_MODS }, rng.seed());
+      const dur = 75000;
+      const t = eventTimes(r.events, dur);
+      expect(t).toHaveLength(r.events.length);
+      expect(t[0]).toBe(0);
+      expect(t.at(-1)).toBe(dur);
+      for (let k = 1; k < t.length; k++) {
+        expect(t[k]).toBeGreaterThanOrEqual(t[k - 1]);
+        if (r.events[k - 1].type === 'goal' && k < t.length - 1) expect(t[k] - t[k - 1]).toBeGreaterThan(2000);
+      }
+    }
+  });
+});

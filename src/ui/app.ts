@@ -7,7 +7,8 @@ import { pixelize } from './pixelEmoji';
 import { BM_ACTIONS, kitColors, tickQuickBar } from './bm';
 import { setCurrentKit } from './avatar';
 import { teamKitFrom } from './pitch';
-import { PitchView } from './pitch';
+import { BroadcastView } from './broadcast';
+import { setCrowd } from './sound';
 import * as matchScreen from './screens/match';
 import * as storeScreen from './screens/store';
 import * as tacticsScreen from './screens/tactics';
@@ -60,7 +61,7 @@ export interface ModalState {
 
 export class App {
   tab: TabId = 'match';
-  readonly pitch = new PitchView();
+  readonly pitch = new BroadcastView();
   /** 탭 안의 하위 화면 상태(예: 전술 탭의 스킬/전술) */
   sub: Record<string, string> = {};
   private modalStack: ModalState[] = [];
@@ -293,6 +294,7 @@ export class App {
 
   handle(act: string, arg: string, el: HTMLElement): void {
     if (act === 'tab') {
+      if (arg !== 'match') setCrowd(0, 0);
       this.tab = arg as TabId;
       this.render();
       // 자동 스카우트가 다른 탭에 있을 때 찾아 둔 선수가 있으면 경기 탭에서 보여준다
