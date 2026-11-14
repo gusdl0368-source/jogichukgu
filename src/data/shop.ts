@@ -50,6 +50,9 @@ export const MEMBERSHIP_PRODUCT: CashProduct = {
 
 export const EXTRA_SKILL_SLOT: CashProduct = { id: 'skill_slot', name: '스킬 슬롯 +1', price: 4900, desc: '팀 스킬을 하나 더 장착합니다' };
 
+/** 오늘의 슈퍼스타 영입 제안 */
+export const SUPERSTAR_PRICE = 9900;
+
 export const PASS_PRODUCT: CashProduct = { id: 'pass_premium', name: '시즌 회비 패스 (프리미엄)', price: 17000 };
 
 /** 패스 단계: 리그 경기 승리 수로 진행 */

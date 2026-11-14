@@ -2,23 +2,60 @@ import { SKILLS as SKILL_CFG } from '../../data/balance';
 import { RESEARCH, TREES, type TreeId, researchCost } from '../../data/research';
 import { EXTRA_SKILL_SLOT } from '../../data/shop';
 import { MAX_SKILL_LEVEL, RARITY, SKILLS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../../data/skills';
+import { STYLES, type TacticStyle } from '../../game/match';
+import { traitById } from '../../data/traits';
 import type { ActionHandler, App } from '../app';
 import { duration, esc, fmt, won } from '../dom';
 
-function sub(app: App): 'skills' | 'research' {
-  return (app.sub.tactics as 'skills' | 'research') ?? 'research';
+type Sub = 'style' | 'skills' | 'research';
+
+function sub(app: App): Sub {
+  return (app.sub.tactics as Sub) ?? 'style';
 }
 
 export function render(app: App): string {
   const mode = sub(app);
   return `<div class="page">
     <h2>📋 전술실</h2>
-    <div class="segment">
+    <div class="segment" style="grid-template-columns:repeat(3,1fr);max-width:360px">
+      <button class="${mode === 'style' ? 'on' : ''}" data-act="tsub" data-arg="style">경기 운영</button>
       <button class="${mode === 'research' ? 'on' : ''}" data-act="tsub" data-arg="research">전술 연구</button>
       <button class="${mode === 'skills' ? 'on' : ''}" data-act="tsub" data-arg="skills">팀 스킬</button>
     </div>
-    ${mode === 'research' ? renderResearch(app) : renderSkills(app)}
+    ${mode === 'style' ? renderStyle(app) : mode === 'research' ? renderResearch(app) : renderSkills(app)}
   </div>`;
+}
+
+// ───────── 경기 운영 ─────────
+
+function renderStyle(app: App): string {
+  const g = app.game;
+  const p = g.power();
+  const cur = app.state.style;
+  const mods = g.mods();
+  const traits = app.state.squad.map((pl) => traitById(pl.trait)).filter((t): t is NonNullable<typeof t> => !!t);
+  return `<p class="sub">다음 경기부터 적용됩니다. 상대가 강하면 버스를 세우고, 약하면 몰아치세요.</p>
+    <div class="grid3">${(Object.keys(STYLES) as TacticStyle[]).map((k) => {
+      const st = STYLES[k];
+      return `<button class="tile ${cur === k ? 'active' : ''}" data-act="set-style" data-arg="${k}">
+        <div class="big-ico">${st.icon}</div><div class="t">${st.name}</div><div class="muted">${st.desc}</div>
+      </button>`;
+    }).join('')}</div>
+    <div class="panel" style="margin-top:12px"><h3>적용되는 라인 힘</h3>
+      <div class="row-between"><span>⚔️ 공격</span><b>${Math.round(p.atk * STYLES[cur].atk)}</b></div>
+      <div class="row-between"><span>⚙️ 미드</span><b>${Math.round(p.mid * STYLES[cur].mid)}</b></div>
+      <div class="row-between"><span>🛡️ 수비</span><b>${Math.round(p.def * STYLES[cur].def)}</b></div>
+    </div>
+    <div class="panel"><h3>주전 특성 (${traits.length}명)</h3>
+      ${traits.length ? traits.map((t) => `<div class="row-between"><span>${t.icon} ${esc(t.name)}</span><span class="muted">${esc(t.desc)}</span></div>`).join('') : '<p class="muted" style="margin:0">특성 있는 선수가 없어요. 높은 등급일수록 특성이 자주 붙어요.</p>'}
+    </div>
+    <div class="panel"><h3>경기 확률 보정 합계</h3>
+      ${[
+        ['패스 성공', mods.passAcc], ['중원 장악', mods.pressing], ['유효 슈팅', mods.finishing], ['파워슛', mods.powerShot],
+        ['역습', mods.counter], ['중거리 시도', mods.longShot], ['선방', mods.gkSave], ['체력 유지', mods.stamina], ['세트피스', mods.setPiece],
+      ].map(([n, v]) => `<div class="row-between"><span>${n}</span><b>+${Math.round((v as number) * 1000) / 10}%</b></div>`).join('')}
+      <div class="row-between"><span>반칙·카드</span><b>-${Math.round(mods.discipline * 100)}%</b></div>
+    </div>`;
 }
 
 // ───────── 전술 연구 ─────────
@@ -149,6 +186,11 @@ export function tick(app: App, now: number): void {
 }
 
 export const actions: Record<string, ActionHandler> = {
+  'set-style'(app, arg) {
+    app.game.setStyle(arg as TacticStyle);
+    app.toast(`${STYLES[arg as TacticStyle].icon} ${STYLES[arg as TacticStyle].name}로 바꿨어요`);
+    app.refresh();
+  },
   tsub(app, arg) {
     app.sub.tactics = arg;
     app.refresh();

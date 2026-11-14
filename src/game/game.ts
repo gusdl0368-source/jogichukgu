@@ -2,10 +2,12 @@ import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, S
 import { RESEARCH, type ResearchEffect, type TreeId, researchCost, rushGemCost } from '../data/research';
 import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, SPONSORS, dailyDeals, passReward } from '../data/shop';
 import { MAX_SKILL_LEVEL, SKILLS as SKILL_DEFS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../data/skills';
+import { DAILY_BONUS, DAILY_MISSIONS, GUIDE, type MissionKey } from '../data/missions';
 import { randomCrest, randomUserTeamName } from '../data/teams';
+import { traitById, TRAITS } from '../data/traits';
 import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
 import { PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
-import { type MatchMods, type TeamSide, explain, simulateMatch } from './match';
+import { type MatchMods, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
 import { compareSlot, generatePlayer, generateSquad, teamPower } from './players';
 import { Rng } from './rng';
 import { type GameState, type MatchSummary, type TournamentOpponent, dayKey, newDaily, nextReset } from './state';
@@ -60,7 +62,15 @@ export class Game {
       longShot: 0,
       pressing: this.researchEffect('pressing'),
       finishing: this.researchEffect('finishing'),
+      setPiece: 0,
+      discipline: 0,
     };
+    // 주전 선수 특성
+    for (const p of this.state.squad) {
+      const t = traitById(p.trait);
+      if (t) m[t.effect] += t.value;
+    }
+    m.discipline = Math.min(0.8, m.discipline);
     for (const id of this.state.skills.equipped) {
       const def = SKILL_DEFS.find((s) => s.id === id);
       const owned = this.state.skills.owned[id];
@@ -70,7 +80,7 @@ export class Game {
   }
 
   mySide(): TeamSide {
-    return { name: this.state.teamName, squad: this.state.squad, power: this.power(), mods: this.mods() };
+    return { name: this.state.teamName, squad: this.state.squad, power: this.power(), mods: this.mods(), style: this.state.style };
   }
 
   isMember(now: number): boolean {
@@ -129,6 +139,7 @@ export class Game {
     const player = generatePlayer(rng, tier);
     this.state.pending = player;
     this.state.scoutCount++;
+    this.progressMission('scout');
     return player;
   }
 
@@ -154,6 +165,7 @@ export class Game {
     this.state.squad[slot] = p;
     this.state.pending = null;
     this.state.stats.signed++;
+    this.state.stats.bestTier = Math.max(this.state.stats.bestTier, p.tier);
     const price = this.sellPrice(old);
     this.add({ cash: price });
     return price;
@@ -180,6 +192,7 @@ export class Game {
    */
   autoStep(): { status: 'paused' | 'sold' | 'empty' | 'blocked'; player?: Player; cash?: number } {
     if (this.state.pending) return { status: 'blocked' };
+    this.state.stats.autoUsed = true;
     const p = this.scout();
     if (!p) return { status: 'empty' };
     if (this.state.autoScout.keepTiers[p.tier] && this.isUpgrade(p)) return { status: 'paused', player: p };
@@ -213,6 +226,10 @@ export class Game {
   collectStadium(now: number): { cash: number; contacts: number } {
     const p = this.stadiumPending(now);
     this.add({ cash: p.cash, contacts: p.contacts });
+    if (p.cash > 0) {
+      this.state.stats.collects++;
+      this.progressMission('collect');
+    }
     // 다음 연락처까지 지난 시간은 버리지 않고 이월한다
     const r = this.stadiumRates();
     this.state.stadium.contactCarrySec = p.capped ? 0 : (p.seconds + this.state.stadium.contactCarrySec) % r.contactEverySec;
@@ -258,7 +275,8 @@ export class Game {
     const me = this.mySide();
     const opp = aiSide(fx.opponent, this.state.league.level);
     const seed = this.rng().seed();
-    const result = fx.home ? simulateMatch(me, opp, seed) : simulateMatch(opp, me, seed);
+    const opts = { tier: this.state.league.level };
+    const result = fx.home ? simulateMatch(me, opp, seed, opts) : simulateMatch(opp, me, seed, opts);
     this.state.match = {
       round: this.state.league.round,
       opponentId: fx.opponent.id,
@@ -298,6 +316,7 @@ export class Game {
     if (outcome === 'win') {
       s.wins++;
       this.state.pass.wins++;
+      this.progressMission('wins');
     } else if (outcome === 'draw') s.draws++;
     else s.losses++;
 
@@ -494,6 +513,8 @@ export class Game {
     if (difficulty < 1 || difficulty > this.campMaxPlayable(id)) return false;
     if (this.campEntriesLeft(id) <= 0) return false;
     this.state.daily.campUsed[id]++;
+    this.state.stats.camps++;
+    this.progressMission('camp');
     return true;
   }
 
@@ -602,7 +623,9 @@ export class Game {
     const o = this.state.tournament.opponents[index];
     if (!o || this.state.daily.tournamentTickets <= 0) return null;
     this.state.daily.tournamentTickets--;
-    const result = simulateMatch(this.mySide(), this.tournamentSide(o), this.rng().seed());
+    const result = simulateMatch(this.mySide(), this.tournamentSide(o), this.rng().seed(), { tier: this.state.league.level });
+    this.state.stats.cups++;
+    this.progressMission('cup');
     const [a, b] = result.score;
     const outcome = a > b ? 'win' : a < b ? 'loss' : 'draw';
     const stars = outcome === 'win' ? o.stars : 0;
@@ -700,6 +723,83 @@ export class Game {
       if (this.state.pass.premium && !this.state.pass.claimedPremium.includes(i)) n++;
     }
     return n;
+  }
+
+  // ───────────────────────── 경기 운영 ─────────────────────────
+
+  setStyle(style: TacticStyle): void {
+    if (this.state.style !== style) this.state.stats.styleChanged = true;
+    this.state.style = style;
+  }
+
+  // ───────────────────────── 일일 미션 / 가이드 ─────────────────────────
+
+  progressMission(key: MissionKey, n = 1): void {
+    this.state.daily.missions.progress[key] += n;
+  }
+
+  missionDone(key: MissionKey): boolean {
+    const m = DAILY_MISSIONS.find((x) => x.id === key)!;
+    return this.state.daily.missions.progress[key] >= m.target;
+  }
+
+  claimMission(key: MissionKey): Reward | null {
+    const ms = this.state.daily.missions;
+    if (!this.missionDone(key) || ms.claimed.includes(key)) return null;
+    const reward = DAILY_MISSIONS.find((x) => x.id === key)!.reward;
+    ms.claimed.push(key);
+    this.add(reward);
+    return reward;
+  }
+
+  claimMissionBonus(): Reward | null {
+    const ms = this.state.daily.missions;
+    if (ms.bonus || ms.claimed.length < DAILY_MISSIONS.length) return null;
+    ms.bonus = true;
+    this.add(DAILY_BONUS);
+    return DAILY_BONUS;
+  }
+
+  missionsClaimable(): number {
+    const ms = this.state.daily.missions;
+    const n = DAILY_MISSIONS.filter((m) => this.missionDone(m.id) && !ms.claimed.includes(m.id)).length;
+    return n + (!ms.bonus && ms.claimed.length >= DAILY_MISSIONS.length ? 1 : 0);
+  }
+
+  guide(): { index: number; name: string; hint: string; cur: number; target: number; done: boolean; reward: Reward } | null {
+    const i = this.state.guideStep;
+    const q = GUIDE[i];
+    if (!q) return null;
+    const [cur, target] = q.progress(this);
+    return { index: i, name: q.name, hint: q.hint, cur, target, done: cur >= target, reward: q.reward };
+  }
+
+  claimGuide(): Reward | null {
+    const g = this.guide();
+    if (!g || !g.done) return null;
+    this.add(g.reward);
+    this.state.guideStep++;
+    return g.reward;
+  }
+
+  // ───────────────────────── 슈퍼스타 영입 제안 ─────────────────────────
+
+  /** 오늘의 슈퍼스타: 날짜와 리그로 정해지는 특성 보유 선수 (하루 한 번 구매) */
+  superstarOffer(now: number): Player {
+    const key = dayKey(now);
+    let h = 7;
+    for (const ch of key + this.state.league.level) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const rng = new Rng(h);
+    const tier = Math.min(TIERS.length - 1, this.state.league.level + 2);
+    const p = generatePlayer(rng, tier);
+    return p.trait ? p : { ...p, trait: rng.pick(TRAITS).id };
+  }
+
+  buySuperstar(now: number): boolean {
+    if (this.state.daily.superstarBought || this.state.pending) return false;
+    this.state.daily.superstarBought = true;
+    this.state.pending = this.superstarOffer(now);
+    return true;
   }
 
   // ───────────────────────── 기타 ─────────────────────────

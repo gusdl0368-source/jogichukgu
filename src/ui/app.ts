@@ -45,6 +45,8 @@ export interface ModalState {
   render: () => string;
   /** true면 tick마다 다시 그린다 */
   live?: boolean;
+  /** .modal에 붙일 추가 클래스 (연출용) */
+  cls?: string;
   /** false면 바깥을 눌러도 안 닫힌다 */
   dismissable?: boolean;
   onClose?: () => void;
@@ -183,7 +185,7 @@ export class App {
     if (!root) return;
     const m = this.topModal();
     const html = m
-      ? `<div class="overlay" data-act="${m.dismissable ? 'overlay' : ''}"><div class="modal">${m.dismissable ? '<button class="close-x" data-act="close">✕</button>' : ''}${m.render()}</div></div>`
+      ? `<div class="overlay" data-act="${m.dismissable ? 'overlay' : ''}"><div class="modal ${m.cls ?? ''}">${m.dismissable ? '<button class="close-x" data-act="close">✕</button>' : ''}${m.render()}</div></div>`
       : '';
     if (!force && html === this.lastModalHtml) return;
     const prevScroll = root.querySelector('.modal')?.scrollTop ?? 0;

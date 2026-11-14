@@ -26,9 +26,19 @@ export interface Crest {
 }
 
 
-export function randomTeamName(rng: Rng, used: Set<string>): string {
+/** 3부·2부: 도시 구단 */
+const CITY = ['해안', '북부', '남강', '동진', '서림', '청솔', '백산', '금호', '은하', '한빛', '새솔', '태백', '가람', '누리', '다온', '솔빛'];
+const CITY_SUFFIX = ['시민구단', '시티', 'FC', '유나이티드', '레이커스', '드래곤즈', '울브스', '스틸러스'];
+/** 세미프로부터: 세계 각지의 가상 클럽 */
+const WORLD_PREFIX = ['레알', 'AC', '스포르팅', '아틀레티코', '올림피크', 'FC', '디나모', '인테르', 'SV', '라싱', '데포르티보', '로열'];
+const WORLD_CITY = ['몬테비스타', '발도로', '루나리스', '노르드하븐', '생마렐', '리오아줄', '산타루스', '아이젠탈', '크라스나', '포르토베로', '알타마르', '베르겐하임', '카스텔로', '솔레아', '브리스톤', '라고네그로', '페라디아', '오스트란드'];
+
+export function randomTeamName(rng: Rng, used: Set<string>, level = 0): string {
   for (let i = 0; i < 50; i++) {
-    const name = rng.chance(0.2) ? rng.pick(FUNNY) : `${rng.pick(PREFIX)} ${rng.pick(SUFFIX)}`;
+    const name =
+      level >= 4 ? `${rng.pick(WORLD_PREFIX)} ${rng.pick(WORLD_CITY)}`
+      : level >= 2 ? `${rng.pick(CITY)} ${rng.pick(CITY_SUFFIX)}`
+      : rng.chance(0.2) ? rng.pick(FUNNY) : `${rng.pick(PREFIX)} ${rng.pick(SUFFIX)}`;
     if (!used.has(name)) {
       used.add(name);
       return name;

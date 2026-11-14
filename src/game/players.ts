@@ -1,19 +1,12 @@
 import { TIERS } from '../data/balance';
+import { JOBS_BY_TIER, NATIONS, type Nation } from '../data/nations';
+import { TRAITS, traitChance } from '../data/traits';
 import { Rng } from './rng';
 import { FORMATION, type Player, type Position, type StatKey, type Stats, STAT_KEYS, type TeamPower } from './types';
 
-const SURNAMES = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임', '한', '오', '서', '신', '권', '황', '안', '송', '류', '홍'];
-const GIVEN = [
-  '민수', '영호', '철수', '동훈', '성민', '재석', '태현', '준호', '상우', '진우', '현석', '경수', '대호', '병철', '용준',
-  '기훈', '정우', '승현', '두식', '만복', '종국', '광수', '창민', '희철', '우진', '도윤', '시우', '하준', '건우', '봉식',
-];
 const NICKNAMES = [
   '번개', '탱크', '새벽왕', '막걸리', '철벽', '쌕쌕이', '뻥축', '빨랫줄', '대포알', '문어발', '불도저', '헛다리', '꽁지머리',
   '아저씨', '산삼', '거미손', '독수리', '방앗간', '총알', '부엉이',
-];
-export const JOBS = [
-  '택배기사', '치킨집 사장', '대학생', '전직 선출', '공무원', '편의점 알바', '부동산 중개사', '철물점 사장', '택시기사',
-  '체육교사', '회사원', '목수', '요리사', '헬스 트레이너', '은퇴자', '고등학생', '프리랜서', '경찰관', '소방관', '농부',
 ];
 
 /** 포지션별 능력치 가중치. 종합 능력치는 이 가중 평균이다. */
@@ -83,9 +76,19 @@ function newId(rng: Rng): string {
   return `${Date.now().toString(36)}${idCounter.toString(36)}${rng.int(0, 1e6).toString(36)}`;
 }
 
-export function randomName(rng: Rng): string {
-  const full = rng.pick(SURNAMES) + rng.pick(GIVEN);
-  return rng.chance(0.35) ? `'${rng.pick(NICKNAMES)}' ${full}` : full;
+export function randomNation(rng: Rng, tier: number): Nation {
+  return NATIONS[rng.weighted(NATIONS.map((n) => n.weight[tier] ?? 0))];
+}
+
+export function randomName(rng: Rng, nation: Nation = NATIONS[0], tier = 0): string {
+  const given = rng.pick(nation.given);
+  const sur = rng.pick(nation.surname);
+  if (nation.familyFirst) {
+    const full = nation.code === 'KR' ? sur + given : `${sur} ${given}`;
+    // 동네 아저씨들은 별명으로 불린다
+    return nation.code === 'KR' && tier <= 1 && rng.chance(0.35) ? `'${rng.pick(NICKNAMES)}' ${full}` : full;
+  }
+  return `${given} ${sur}`;
 }
 
 export function generatePlayer(rng: Rng, tier: number, position?: Position): Player {
@@ -100,12 +103,18 @@ export function generatePlayer(rng: Rng, tier: number, position?: Position): Pla
     const offset = relevant ? rng.int(-4, 6) : rng.int(-22, -4);
     stats[k] = clamp(base + offset, 1, 99);
   }
+  const nation = randomNation(rng, tier);
+  const trait = rng.chance(traitChance(tier)) ? rng.pick(TRAITS).id : undefined;
+  // 동네는 나이가 제각각, 프로는 전성기 나이
+  const age = tier <= 1 ? rng.int(17, 58) : tier <= 3 ? rng.int(18, 38) : rng.int(19, 34);
   return {
     id: newId(rng),
-    name: randomName(rng),
-    job: rng.pick(JOBS),
-    age: rng.int(17, 58),
+    name: randomName(rng, nation, tier),
+    job: rng.pick(JOBS_BY_TIER[tier]),
+    age,
     position: pos,
+    nation: nation.code,
+    ...(trait ? { trait } : {}),
     tier,
     stats,
     overall: computeOverall(pos, stats),

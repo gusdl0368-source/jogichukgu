@@ -6,7 +6,11 @@ import { FORMATION, type Player } from '../../game/types';
 import type { ActionHandler, App } from '../app';
 import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../cards';
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
-import { openEnding, openPass, openMembership, openSeasonEnd } from '../shared';
+import { confetti } from '../effects';
+import { sfx } from '../sound';
+import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } from '../shared';
+import { STYLES, type TacticStyle } from '../../game/match';
+import { rewardText } from '../dom';
 
 // ───────── 화면 밖 상태 ─────────
 
@@ -32,6 +36,7 @@ export function lifecycle(app: App, now: number): void {
     if (g.startMatch(now)) {
       ui.shownGoals = 0;
       ui.banner = null;
+      if (app.tab === 'match') sfx('whistle');
       if (app.tab === 'match') app.refresh();
     }
     return;
@@ -42,9 +47,21 @@ export function lifecycle(app: App, now: number): void {
   ui.banner = { summary, until: now + BREAK_MS };
   ui.nextMatchAt = now + BREAK_MS;
   app.save();
-  if (app.tab === 'match') app.refresh();
-  if (summary.champion) openEnding(app);
-  else if (summary.seasonEnd) openSeasonEnd(app, summary);
+  if (app.tab === 'match') {
+    app.refresh();
+    sfx(summary.outcome === 'win' ? 'win' : summary.outcome === 'loss' ? 'lose' : 'tap');
+  }
+  if (summary.champion) {
+    sfx('fanfare');
+    confetti(app.root, 220);
+    openEnding(app);
+  } else if (summary.seasonEnd) {
+    if (summary.seasonEnd.promoted) {
+      sfx('fanfare');
+      confetti(app.root);
+    }
+    openSeasonEnd(app, summary);
+  }
 }
 
 function liveEvents(app: App, now: number): MatchEvent[] {
@@ -84,15 +101,17 @@ export function render(app: App): string {
   ];
   return `
   <div style="padding-top:6px;background:var(--bg)">
+    ${renderGuide(app)}
     <div class="scoreboard">
       <div class="side me">${crestHtml(s.crest, 28)}<div style="min-width:0"><div class="name">${esc(s.teamName)}</div><div class="pw">⚡${power.total}</div></div></div>
       <div class="score" id="score">0 - 0</div>
       <div class="side opp">${opp ? crestHtml(opp.crest, 28) : ''}<div style="min-width:0"><div class="name">${esc(opp?.name ?? '-')}</div><div class="pw">⚡${Math.round(oppPower * 10) / 10}</div></div></div>
     </div>
+    <div class="venue">${TIERS[s.league.level].icon} ${TIERS[s.league.level].name} · ${TIERS[s.league.level].venue} · <button class="venue-style" data-act="style-cycle">${STYLES[s.style].icon} ${STYLES[s.style].name}</button></div>
     <div class="pitch-wrap" id="pitch-wrap">
       <div id="pitch-slot"></div>
       <div class="clock" id="clock">00'</div>
-      <div class="commentary" id="commentary">${s.champion ? '🏆 국가대표 리그 우승! 전설의 조기축구회' : '다음 경기를 준비 중…'}</div>
+      <div class="commentary" id="commentary">${s.champion ? '🏆 슈퍼스타 리그 우승! 동네에서 세계 정상까지' : '다음 경기를 준비 중…'}</div>
       ${renderBanner(now)}
     </div>
     <div class="linestats">
@@ -104,6 +123,7 @@ export function render(app: App): string {
   </div>
   <div class="board" style="position:relative">
     <div class="floaters">
+      <button class="floater green" data-act="missions"><span class="ico">📅</span>미션${g.missionsClaimable() > 0 ? '<span class="dot"></span>' : ''}</button>
       <button class="floater" data-act="pass"><span class="ico">🎟️</span>시즌 패스${g.passClaimable() > 0 ? '<span class="dot"></span>' : ''}</button>
       <button class="floater purple" data-act="membership"><span class="ico">💳</span>정회원${g.isMember(now) && !s.daily.membershipClaimed ? '<span class="dot"></span>' : ''}</button>
     </div>
@@ -112,12 +132,22 @@ export function render(app: App): string {
     </div>
   </div>
   <div class="actions" style="grid-template-columns:52px 52px 1fr 84px 52px">
-    <button class="sq-btn" data-act="league"><span class="ico">${TIERS[s.league.level].short === '국대' ? '🇰🇷' : '🏅'}</span>${rank}</button>
+    <button class="sq-btn" data-act="league"><span class="ico">${TIERS[s.league.level].icon}</span>${rank}</button>
     <button class="sq-btn" data-act="stadium" id="stadium-btn"><span class="ico">🏟️</span><span id="stadium-cash">${fmt(stadium.cash)}</span>${stadium.capped ? '<span class="dot"></span>' : ''}</button>
     <button class="scout-btn" data-act="scout" ${s.wallet.contacts <= 0 ? 'disabled' : ''}><span class="ico">🔭</span>📞 ${fmt(s.wallet.contacts)}</button>
     <button class="sq-btn" data-act="probs">스카우트<br><b style="font-size:15px">Lv.${s.scoutLevel}</b>${s.wallet.cash >= g.upgradeCost() && s.scoutLevel < MAX_SCOUT_LEVEL ? '<span class="dot"></span>' : ''}</button>
     <button class="sq-btn ${ui.autoRunning ? 'on' : ''}" data-act="auto"><span class="ico">🔁</span>${ui.autoRunning ? '자동 ON' : '자동'}</button>
   </div>`;
+}
+
+function renderGuide(app: App): string {
+  const q = app.game.guide();
+  if (!q) return '';
+  return `<button class="guide ${q.done ? 'done' : ''}" data-act="guide">
+    <span class="g-ico">${q.done ? '🎁' : '🎯'}</span>
+    <span class="g-body"><b>${esc(q.name)}</b> <span class="g-prog">${fmt(q.cur)}/${fmt(q.target)}</span><br><span class="g-hint">${q.done ? '눌러서 보상 받기' : esc(q.hint)}</span></span>
+    <span class="g-rew">${rewardText(q.reward)}</span>
+  </button>`;
 }
 
 function renderBanner(now: number): string {
@@ -164,6 +194,7 @@ export function tick(app: App, now: number): void {
   if (goals > ui.shownGoals) {
     ui.shownGoals = goals;
     const meScored = last?.type === 'goal' && last.team === (m.home ? 0 : 1);
+    sfx(meScored ? 'goal' : 'concede');
     const wrap = app.root.querySelector('#pitch-wrap');
     if (wrap) {
       const el = document.createElement('div');
@@ -185,15 +216,28 @@ export function draw(app: App, t: number): void {
   const oppTeam = m ? s.league.teams.find((x) => x.id === m.opponentId) : myFixture(s.league)?.opponent;
   const oppSquad = oppTeam?.squad ?? s.squad;
   const squads: [Player[], Player[]] = myTeam === 0 ? [s.squad, oppSquad] : [oppSquad, s.squad];
-  app.pitch.draw(m ? liveEvents(app, Date.now()) : [], myTeam as 0 | 1, squads, t);
+  const events = m ? liveEvents(app, Date.now()) : [];
+  const last = events[events.length - 1];
+  app.pitch.draw(events, myTeam as 0 | 1, squads, t, TIERS[s.league.level].crowd, last?.type === 'goal');
 }
 
 // ───────── 모달 ─────────
 
+/** 리그보다 두 단계 높은 등급이거나 최상위 등급이면 대박 */
+function isRare(app: App, tier: number): boolean {
+  return tier >= Math.min(TIERS.length - 1, app.state.league.level + 2) || tier >= 6;
+}
+
 function openCompare(app: App): void {
   if (app.topModal()?.id === 'compare') return app.renderModal(true);
   ui.cmpFull = false;
-  app.openModal({ id: 'compare', render: () => renderCompare(app), dismissable: false });
+  const p = app.state.pending;
+  const rare = !!p && isRare(app, p.tier);
+  app.openModal({ id: 'compare', render: () => renderCompare(app), dismissable: false, cls: rare ? 'rare-reveal' : 'reveal' });
+  if (rare) {
+    sfx('rare');
+    confetti(app.root, 80);
+  } else sfx('scout');
 }
 
 function renderCompare(app: App): string {
@@ -206,6 +250,7 @@ function renderCompare(app: App): string {
   return `
     <span class="compare-tag">현재 주전</span>
     <div class="cmp">${playerCard(cur)}<div>${playerInfo(cur)}${statBlock(cur, undefined, ui.cmpFull)}</div></div>
+    ${isRare(app, p.tier) ? `<div class="rare-banner" style="--tier:${TIERS[p.tier].color}">✨ 대박! ${TIERS[p.tier].name} 선수 발견 ✨</div>` : ''}
     <span class="compare-tag" style="background:${better ? 'var(--green)' : 'var(--red)'}">새 선수 ${better ? '▲ 더 좋아요' : '▼ 별로예요'}</span>
     <div class="cmp new">${playerCard(p, { up: better })}<div>${playerInfo(p)}${statBlock(p, cur, ui.cmpFull)}</div></div>
     <p style="text-align:center;margin:4px 0 10px"><button class="btn small gray" data-act="cmp-full">${ui.cmpFull ? '핵심 능력치만 보기' : 'ⓘ 능력치 전부 보기'}</button></p>
@@ -270,7 +315,7 @@ function renderLeague(app: App): string {
   const t = sortedTable(s.league);
   const lv = s.league.level;
   return `<h2>${tierBadge(lv)} 순위표</h2>
-    <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/${s.league.fixtures.length}경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '국가대표 우승!'}</b></p>
+    <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/${s.league.fixtures.length}경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '세계 정상!'}</b></p>
     <table class="table">
       <tr><th>#</th><th class="l">팀</th><th>경기</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr>
       ${t.map(({ team, row }, i) => `<tr class="${team.id === PLAYER_TEAM_ID ? 'me' : ''}">
@@ -336,6 +381,7 @@ export const actions: Record<string, ActionHandler> = {
     const before = app.game.power().total;
     const got = app.game.signPending();
     app.closeModal();
+    sfx('sign');
     const diff = Math.round((app.game.power().total - before) * 10) / 10;
     app.toast(`✍️ ${p ? shortName(p) : ''} 영입! 팀 파워 ${diff >= 0 ? '+' : ''}${diff} · 💵+${fmt(got)}`);
     app.refresh();
@@ -347,6 +393,7 @@ export const actions: Record<string, ActionHandler> = {
   sell(app) {
     const got = app.game.sellPending();
     app.closeModal();
+    sfx('coin');
     app.toast(`💵 +${fmt(got)} 방출`);
     app.refresh();
   },
@@ -359,6 +406,7 @@ export const actions: Record<string, ActionHandler> = {
   },
   'do-upgrade'(app) {
     if (app.game.upgradeScout()) {
+      sfx('fanfare');
       app.toast(`🔭 스카우트 Lv.${app.state.scoutLevel}!`);
       app.refresh();
     } else app.toast('💵 회비가 부족해요');
@@ -385,6 +433,7 @@ export const actions: Record<string, ActionHandler> = {
   },
   collect(app) {
     const got = app.game.collectStadium(app.now());
+    sfx('coin');
     app.toast(`🏟️ 💵+${fmt(got.cash)} 📞+${got.contacts}`);
     app.refresh();
   },
@@ -402,6 +451,26 @@ export const actions: Record<string, ActionHandler> = {
   },
   pass(app) {
     openPass(app);
+  },
+  missions(app) {
+    openMissions(app);
+  },
+  guide(app) {
+    const r = app.game.claimGuide();
+    if (r) {
+      app.toast(`🎯 가이드 완료! ${rewardText(r)}`);
+      app.refresh();
+    } else {
+      const q = app.game.guide();
+      if (q) app.toast(`🎯 ${q.hint}`);
+    }
+  },
+  'style-cycle'(app) {
+    const order: TacticStyle[] = ['balance', 'attack', 'defense'];
+    const next = order[(order.indexOf(app.state.style) + 1) % order.length];
+    app.game.setStyle(next);
+    app.toast(`${STYLES[next].icon} ${STYLES[next].name}: ${STYLES[next].desc} (다음 경기부터)`);
+    app.refresh();
   },
   membership(app) {
     openMembership(app);

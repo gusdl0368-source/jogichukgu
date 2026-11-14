@@ -3,6 +3,7 @@ import { CAMPS, type CampId, campWinChance, keeperReadChance } from '../../data/
 import type { Game } from '../../game/game';
 import { Rng, randomSeed } from '../../game/rng';
 import type { ActionHandler, App } from '../app';
+import { sfx } from '../sound';
 import { fmt, rewardChips, rewardText } from '../dom';
 
 /** 캠프별로 고른 난이도 */
@@ -131,6 +132,7 @@ export const actions: Record<string, ActionHandler> = {
     const goal = !missWide && keeperDir !== dir;
     pk.busy = true;
     app.renderModal(true);
+    sfx('kick');
     const keeper = app.root.querySelector<HTMLElement>('#pk-keeper');
     const ball = app.root.querySelector<HTMLElement>('#pk-ball');
     const left = ['24%', '50%', '76%'];
@@ -148,6 +150,7 @@ export const actions: Record<string, ActionHandler> = {
       if (!pk) return;
       pk.kicks.push(goal ? 'ok' : 'no');
       pk.busy = false;
+      sfx(goal ? 'coin' : 'concede');
       app.toast(goal ? '⚽ 골!' : missWide ? '아~ 빗나갔어요' : '🧤 막혔어요!');
       app.renderModal(true);
     }, 700);

@@ -28,6 +28,10 @@ export interface Player {
   job: string;
   age: number;
   position: Position;
+  /** 국적 코드 (data/nations) */
+  nation: string;
+  /** 특성 id (data/traits). 없으면 undefined */
+  trait?: string;
   tier: number;
   stats: Stats;
   overall: number;

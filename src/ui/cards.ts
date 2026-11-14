@@ -1,6 +1,8 @@
 import { TIERS } from '../data/balance';
 import { KEY_STATS_2, KEY_STATS_3, POSITION_LABEL } from '../game/players';
 import { type Player, STAT_KEYS, STAT_LABEL, type StatKey } from '../game/types';
+import { nationByCode } from '../data/nations';
+import { traitById } from '../data/traits';
 import { avatarUrl } from './avatar';
 import { esc, tierBadge } from './dom';
 
@@ -9,10 +11,13 @@ export function shortName(p: Player): string {
 }
 
 export function playerCard(p: Player, opts: { big?: boolean; act?: string; arg?: string; up?: boolean } = {}): string {
+  const trait = traitById(p.trait);
   const attrs = opts.act ? `data-act="${opts.act}" data-arg="${esc(opts.arg ?? '')}"` : '';
   return `<button class="card ${opts.big ? 'big' : ''}" style="--tier:${TIERS[p.tier].color}" ${attrs}>
     <div class="top"><span>${p.position}</span><span>${p.overall}</span></div>
     <img src="${avatarUrl(p.avatar)}" alt="">
+    <span class="flag">${nationByCode(p.nation).flag}</span>
+    ${trait ? `<span class="trait" title="${esc(trait.name)}">${trait.icon}</span>` : ''}
     <div class="nm">${esc(shortName(p))}</div>
     ${opts.up ? '<span class="up">↑</span>' : ''}
   </button>`;
@@ -35,7 +40,10 @@ export function summaryStats(p: Player): string {
 }
 
 export function playerInfo(p: Player): string {
+  const n = nationByCode(p.nation);
+  const t = traitById(p.trait);
   return `<div style="font-weight:900;font-size:16px">${esc(p.name)}</div>
     <div>${tierBadge(p.tier)}</div>
-    <div class="muted">${POSITION_LABEL[p.position]} · ${esc(p.job)} · ${p.age}세</div>`;
+    <div class="muted">${n.flag} ${n.name} · ${POSITION_LABEL[p.position]} · ${esc(p.job)} · ${p.age}세</div>
+    ${t ? `<div class="trait-line">${t.icon} <b>${esc(t.name)}</b> <span class="muted">${esc(t.desc)} ${t.effect === 'discipline' ? `${Math.round(t.value * 100)}%↓` : `+${Math.round(t.value * 1000) / 10}%`}</span></div>` : ''}`;
 }

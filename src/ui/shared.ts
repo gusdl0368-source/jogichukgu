@@ -1,7 +1,10 @@
 import { TIERS } from '../data/balance';
 import { MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, passReward } from '../data/shop';
 import type { OfflineReport } from '../game/game';
-import type { MatchSummary } from '../game/state';
+import { type MatchSummary, deserialize, serialize } from '../game/state';
+import { DAILY_BONUS, DAILY_MISSIONS } from '../data/missions';
+import { GAME_VERSION, PATCH_NOTES } from '../data/version';
+import { sfx } from './sound';
 import type { ActionHandler, App } from './app';
 import { duration, esc, fmt, rewardChips, rewardText, tierBadge, won } from './dom';
 
@@ -79,8 +82,8 @@ export function openEnding(app: App): void {
     id: 'ending',
     render: () => `<div class="ending">
       <div class="trophy">🏆</div>
-      <h2>국가대표 리그 우승!</h2>
-      <p>동네 공터에서 시작한 <b>${esc(app.state.teamName)}</b>가<br>마침내 정상에 섰습니다. 막걸리는 감독님이 쏩니다!</p>
+      <h2>세계 정상!</h2>
+      <p>새벽 학교 운동장에서 공 차던 <b>${esc(app.state.teamName)}</b>가<br>슈퍼스타 리그 우승으로 세계 최고의 클럽이 됐습니다.<br>오늘 막걸리는 감독님이 쏩니다!</p>
       <div class="panel" style="text-align:left">
         <div>⚽ 경기 ${s.matches} · 승 ${s.wins} / 무 ${s.draws} / 패 ${s.losses}</div>
         <div>🥅 득점 ${s.goals} · ⬆️ 승격 ${s.promotions}회</div>
@@ -110,16 +113,25 @@ export function openTutorial(app: App): void {
     id: 'tutorial',
     dismissable: false,
     render: () => `<h2>🌅 새벽 조기축구</h2>
-      <p>동네 공터에서 시작해 <b>국가대표 리그 우승</b>까지!</p>
+      <p>새벽 동네 운동장에서 시작해 <b>세계 정상</b>까지!<br><span class="muted">지역 리그 → 3부 → 2부 → 세미프로 → 프로 → 엘리트 → 월드클래스 → 슈퍼스타</span></p>
       <ol style="line-height:1.7;padding-left:20px">
         <li><b>🔭 스카우트</b>를 누르면 연락처 1개로 선수 1명을 찾아요.</li>
         <li>지금 주전보다 좋으면 <b>영입</b>, 아니면 <b>방출</b>해서 회비를 받아요.</li>
         <li>경기는 자동으로 진행돼요. <b>리그 1위</b>를 하면 승격!</li>
         <li>회비로 <b>스카우트 레벨</b>을 올리면 더 좋은 선수가 나와요.</li>
         <li>🏟️ 운동장에 회비와 연락처가 계속 쌓여요. 자주 수령하세요.</li>
+        <li>🎯 화면 위 <b>가이드</b>를 따라가면 보상을 받아요.</li>
       </ol>
       <button class="btn block green" data-act="tutorial-done">시작하기</button>`,
   });
+}
+
+function showCode(app: App, code: string): void {
+  app.openModal({
+    id: 'code',
+    render: () => `<h2>저장 코드</h2><p class="muted">자동 복사가 안 돼서 직접 복사해주세요.</p><textarea id="export-code" rows="6" readonly style="width:100%;font:12px monospace">${esc(code)}</textarea>`,
+  });
+  app.root.querySelector<HTMLTextAreaElement>('#export-code')?.select();
 }
 
 function openSettings(app: App): void {
@@ -134,12 +146,123 @@ function openSettings(app: App): void {
         <div class="muted">경기 ${app.state.stats.matches} · 승 ${app.state.stats.wins} · 승격 ${app.state.stats.promotions}</div>
         <div class="muted">스카우트 ${app.state.scoutCount}명</div>
       </div>
-      <button class="btn block gray" data-act="tutorial">게임 방법 다시 보기</button><p></p>
+      <div class="panel"><div class="row-between"><h3 style="margin:0">🔊 효과음</h3><button class="btn small ${app.state.settings.sound ? 'green' : 'gray'}" data-act="toggle-sound">${app.state.settings.sound ? '켜짐' : '꺼짐'}</button></div></div>
+      <div class="panel"><h3>저장 코드</h3>
+        <p class="muted" style="margin:0 0 8px">다른 기기로 옮기거나 백업할 때 씁니다. 복사한 코드를 다른 기기의 ‘가져오기’에 붙여넣으세요.</p>
+        <div class="btn-row"><button class="btn small" data-act="export-save">코드 복사</button><button class="btn small gray" data-act="import-open">가져오기</button></div>
+      </div>
+      <div class="btn-row"><button class="btn gray" data-act="tutorial">게임 방법</button><button class="btn gray" data-act="patch-notes">패치 노트</button></div><p></p>
+      <p class="muted" style="text-align:center">새벽 조기축구 ${GAME_VERSION}</p>
       <button class="btn block red" data-act="new-game">처음부터 다시 하기</button>`,
   });
 }
 
+export function openMissions(app: App): void {
+  app.openModal({ id: 'missions', render: () => renderMissions(app), live: true });
+}
+
+function renderMissions(app: App): string {
+  const g = app.game;
+  const ms = g.state.daily.missions;
+  const allClaimed = ms.claimed.length >= DAILY_MISSIONS.length;
+  return `<h2>📅 오늘의 미션</h2>
+    <p class="muted" style="text-align:center;margin-top:-4px">매일 새벽 3시에 새로 시작됩니다</p>
+    ${DAILY_MISSIONS.map((m) => {
+      const cur = Math.min(ms.progress[m.id], m.target);
+      const claimed = ms.claimed.includes(m.id);
+      const done = cur >= m.target;
+      return `<div class="panel" style="padding:10px;margin-bottom:8px">
+        <div class="row-between"><b>${m.icon} ${m.name}</b>
+          ${claimed ? '<span class="muted">✅ 받음</span>' : `<button class="btn small ${done ? 'green' : 'gray'}" data-act="claim-mission" data-arg="${m.id}" ${done ? '' : 'disabled'}>${rewardText(m.reward)}</button>`}
+        </div>
+        <div class="row-between" style="margin-top:6px"><div class="progress" style="flex:1"><i style="width:${(cur / m.target) * 100}%"></i></div><span class="muted">${cur}/${m.target}</span></div>
+      </div>`;
+    }).join('')}
+    <div class="panel" style="text-align:center;background:linear-gradient(#fff3cf,#ffe28a);border-color:#e0b100">
+      <b>🎁 전부 완료 보상</b><div class="rewards" style="justify-content:center;margin:6px 0">${rewardChips(DAILY_BONUS)}</div>
+      ${ms.bonus ? '<span class="muted">✅ 받음</span>' : `<button class="btn small ${allClaimed ? 'gold' : 'gray'}" data-act="claim-bonus" ${allClaimed ? '' : 'disabled'}>받기 (${ms.claimed.length}/${DAILY_MISSIONS.length})</button>`}
+    </div>`;
+}
+
+function openImport(app: App): void {
+  app.openModal({
+    id: 'import',
+    render: () => `<h2>저장 코드 가져오기</h2>
+      <p class="muted">다른 기기에서 복사한 코드를 붙여넣으세요. <b>지금 진행은 덮어써집니다.</b></p>
+      <textarea id="import-code" rows="6" style="width:100%;font:12px monospace;border-radius:8px;border:2px solid var(--line);padding:8px"></textarea>
+      <p></p><div class="btn-row"><button class="btn gray" data-act="close">취소</button><button class="btn red" data-act="import-ok">불러오기</button></div>`,
+    actions: {
+      'import-ok'(app) {
+        const code = app.root.querySelector<HTMLTextAreaElement>('#import-code')?.value.trim() ?? '';
+        const state = decodeSave(code);
+        if (!state) return app.toast('코드가 올바르지 않아요. 처음부터 끝까지 복사했는지 확인하세요');
+        app.replaceState(state);
+        app.save(true);
+        app.toast('📥 저장을 불러왔어요');
+      },
+    },
+  });
+}
+
+/** 저장 코드: JSON을 UTF-8 base64로 */
+export function encodeSave(json: string): string {
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return 'JGC1.' + btoa(bin);
+}
+
+export function decodeSave(code: string): ReturnType<typeof deserialize> {
+  try {
+    if (!code.startsWith('JGC1.')) return null;
+    const bin = atob(code.slice(5).replace(/\s+/g, ''));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return deserialize(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+function openPatchNotes(app: App): void {
+  app.openModal({
+    id: 'patch',
+    render: () => `<h2>📰 패치 노트</h2>${PATCH_NOTES.map((n) => `<div class="panel"><h3>${esc(n.version)} <span class="muted">${esc(n.date)}</span></h3><ul style="margin:0;padding-left:18px;line-height:1.6">${n.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}`,
+  });
+}
+
 export const SHARED_ACTIONS: Record<string, ActionHandler> = {
+  'claim-mission'(app, arg) {
+    const r = app.game.claimMission(arg as (typeof DAILY_MISSIONS)[number]['id']);
+    if (r) {
+      sfx('coin');
+      app.toast(`📅 ${rewardText(r)}`);
+    }
+    app.renderModal(true);
+    app.refresh();
+  },
+  'claim-bonus'(app) {
+    const r = app.game.claimMissionBonus();
+    if (r) {
+      sfx('fanfare');
+      app.toast(`🎁 ${rewardText(r)}`);
+    }
+    app.refresh();
+  },
+  'toggle-sound'(app) {
+    app.state.settings.sound = !app.state.settings.sound;
+    app.renderModal(true);
+  },
+  'export-save'(app) {
+    const code = encodeSave(serialize(app.state));
+    const done = () => app.toast('📋 저장 코드를 복사했어요');
+    navigator.clipboard?.writeText(code).then(done, () => showCode(app, code)) ?? showCode(app, code);
+  },
+  'import-open'(app) {
+    openImport(app);
+  },
+  'patch-notes'(app) {
+    openPatchNotes(app);
+  },
   settings(app) {
     openSettings(app);
   },

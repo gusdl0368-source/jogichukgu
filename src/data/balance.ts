@@ -4,7 +4,13 @@ export interface TierDef {
   id: number;
   name: string;
   short: string;
+  /** 리그 배지 */
+  icon: string;
   color: string;
+  /** 이 리그의 무대 (경기장 분위기, 시작 해설) */
+  venue: string;
+  /** 경기장 관중 밀도 0~1 */
+  crowd: number;
   /** 이 등급 선수의 기본 능력치 범위 */
   statMin: number;
   statMax: number;
@@ -12,17 +18,17 @@ export interface TierDef {
   sellPrice: number;
 }
 
-/** 선수 등급 = 리그 단계. 이름을 공유한다. */
+/** 선수 등급 = 리그 단계. 동네 공터에서 시작해 세계 무대까지 같은 사다리를 쓴다. */
 export const TIERS: TierDef[] = [
-  { id: 0, name: '동네 조기축구', short: '동네', color: '#9aa3ad', statMin: 30, statMax: 46, sellPrice: 2 },
-  { id: 1, name: '구 리그', short: '구', color: '#a8d672', statMin: 40, statMax: 55, sellPrice: 5 },
-  { id: 2, name: '시·도 리그', short: '시·도', color: '#4cbf5a', statMin: 50, statMax: 63, sellPrice: 12 },
-  { id: 3, name: 'K7 리그', short: 'K7', color: '#2bb7a3', statMin: 58, statMax: 70, sellPrice: 28 },
-  { id: 4, name: 'K6 리그', short: 'K6', color: '#3d8bef', statMin: 65, statMax: 76, sellPrice: 66 },
-  { id: 5, name: 'K5 리그', short: 'K5', color: '#8a5cf0', statMin: 71, statMax: 82, sellPrice: 159 },
-  { id: 6, name: 'K4 리그', short: 'K4', color: '#f2b51d', statMin: 77, statMax: 87, sellPrice: 382 },
-  { id: 7, name: 'K3 리그', short: 'K3', color: '#f07a2c', statMin: 82, statMax: 92, sellPrice: 917 },
-  { id: 8, name: '국가대표', short: '국대', color: '#ef4f9a', statMin: 88, statMax: 99, sellPrice: 2201 },
+  { id: 0, name: '동네 조기축구', short: '동네', icon: '🌅', color: '#9aa3ad', venue: '새벽 6시 학교 운동장', crowd: 0.02, statMin: 30, statMax: 46, sellPrice: 2 },
+  { id: 1, name: '지역 리그', short: '지역', icon: '👟', color: '#a8d672', venue: '구민 체육공원', crowd: 0.06, statMin: 40, statMax: 55, sellPrice: 5 },
+  { id: 2, name: '3부 리그', short: '3부', icon: '🥉', color: '#4cbf5a', venue: '시립 종합운동장', crowd: 0.14, statMin: 50, statMax: 63, sellPrice: 12 },
+  { id: 3, name: '2부 리그', short: '2부', icon: '🥈', color: '#2bb7a3', venue: '프로 2부 홈구장', crowd: 0.25, statMin: 58, statMax: 70, sellPrice: 28 },
+  { id: 4, name: '세미프로', short: '세미프로', icon: '🛡️', color: '#3d8bef', venue: '세미프로 전용구장', crowd: 0.38, statMin: 65, statMax: 76, sellPrice: 66 },
+  { id: 5, name: '프로 1부', short: '프로', icon: '🦁', color: '#8a5cf0', venue: '3만 석 프로 경기장', crowd: 0.55, statMin: 71, statMax: 82, sellPrice: 159 },
+  { id: 6, name: '엘리트 리그', short: '엘리트', icon: '🏆', color: '#f2b51d', venue: '유럽 명문 구장', crowd: 0.72, statMin: 77, statMax: 87, sellPrice: 382 },
+  { id: 7, name: '월드클래스', short: '월드', icon: '🌍', color: '#f07a2c', venue: '대륙 챔피언스 무대', crowd: 0.88, statMin: 82, statMax: 92, sellPrice: 917 },
+  { id: 8, name: '슈퍼스타', short: '슈퍼스타', icon: '⭐', color: '#ef4f9a', venue: '세계 클럽 결승 무대', crowd: 1, statMin: 88, statMax: 99, sellPrice: 2201 },
 ];
 
 /** 등급이 처음 나오기 시작하는 스카우트 레벨 */

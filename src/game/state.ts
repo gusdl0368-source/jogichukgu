@@ -2,12 +2,13 @@ import { ECONOMY, TIERS } from '../data/balance';
 import type { CampId } from '../data/training';
 import { type Crest } from '../data/teams';
 import { createLeague, type LeagueState } from './league';
-import type { MatchResult } from './match';
+import type { MatchResult, TacticStyle } from './match';
+import type { MissionKey } from '../data/missions';
 import { generateSquad } from './players';
 import { Rng, randomSeed } from './rng';
 import type { Player, Wallet } from './types';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SAVE_KEY = 'jogichukgu-save-v1';
 
 export interface CurrentMatch {
@@ -67,6 +68,31 @@ export interface DailyState {
   tournamentAd: number;
   membershipClaimed: boolean;
   deals: { set: number; bought: boolean[] };
+  /** 일일 미션 진행도와 받은 보상 */
+  missions: { progress: Record<MissionKey, number>; claimed: MissionKey[]; bonus: boolean };
+  /** 오늘의 슈퍼스타 영입 제안을 샀는지 */
+  superstarBought: boolean;
+}
+
+export interface GameStats {
+  matches: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals: number;
+  sold: number;
+  signed: number;
+  promotions: number;
+  collects: number;
+  camps: number;
+  cups: number;
+  autoUsed: boolean;
+  styleChanged: boolean;
+  bestTier: number;
+}
+
+export function newStats(): GameStats {
+  return { matches: 0, wins: 0, draws: 0, losses: 0, goals: 0, sold: 0, signed: 0, promotions: 0, collects: 0, camps: 0, cups: 0, autoUsed: false, styleChanged: false, bestTier: 0 };
 }
 
 export interface GameState {
@@ -95,8 +121,13 @@ export interface GameState {
   membershipUntil: number;
   sponsors: string[];
   pass: { wins: number; premium: boolean; claimedFree: number[]; claimedPremium: number[] };
-  stats: { matches: number; wins: number; draws: number; losses: number; goals: number; sold: number; signed: number; promotions: number };
-  /** 국가대표 리그 우승 = 엔딩 */
+  stats: GameStats;
+  /** 경기 운영 방식 */
+  style: TacticStyle;
+  /** 다음에 깰 가이드 퀘스트 번호 */
+  guideStep: number;
+  settings: { sound: boolean };
+  /** 슈퍼스타 리그 우승 = 엔딩 */
   champion: boolean;
   seenTutorial: boolean;
 }
@@ -128,6 +159,8 @@ export function newDaily(key: string): DailyState {
     tournamentAd: 0,
     membershipClaimed: false,
     deals: { set: 0, bought: [false, false, false] },
+    missions: { progress: { scout: 0, wins: 0, collect: 0, camp: 0, cup: 0 }, claimed: [], bonus: false },
+    superstarBought: false,
   };
 }
 
@@ -159,7 +192,10 @@ export function newGameState(now: number, seed = randomSeed(), teamName = '새�
     membershipUntil: 0,
     sponsors: [],
     pass: { wins: 0, premium: false, claimedFree: [], claimedPremium: [] },
-    stats: { matches: 0, wins: 0, draws: 0, losses: 0, goals: 0, sold: 0, signed: 0, promotions: 0 },
+    stats: newStats(),
+    style: 'balance',
+    guideStep: 0,
+    settings: { sound: true },
     champion: false,
     seenTutorial: false,
   };
@@ -169,14 +205,36 @@ export function serialize(state: GameState): string {
   return JSON.stringify(state);
 }
 
-/** 저장 데이터 복원. 버전이 다르거나 깨졌으면 null */
+/** 저장 데이터 복원. 예전 버전이면 새 버전으로 옮기고, 깨졌거나 모르는 버전이면 null */
 export function deserialize(raw: string | null): GameState | null {
   if (!raw) return null;
   try {
     const s = JSON.parse(raw) as GameState;
-    if (s.version !== SAVE_VERSION || !Array.isArray(s.squad) || s.squad.length !== 11) return null;
-    return s;
+    if (!s || typeof s !== 'object' || !Array.isArray(s.squad) || s.squad.length !== 11) return null;
+    return migrate(s);
   } catch {
     return null;
   }
+}
+
+/** v1 → v2: 국적·미션·경기 운영·설정 필드 추가. 진행은 그대로 유지한다. */
+export function migrate(s: GameState): GameState | null {
+  if (s.version === SAVE_VERSION) return s;
+  if (s.version !== 1) return null;
+  const v1 = s as GameState & { stats: Partial<GameStats> };
+  const fixPlayer = (p: Player): Player => ({ ...p, nation: p.nation ?? 'KR' });
+  v1.squad = v1.squad.map(fixPlayer);
+  if (v1.pending) v1.pending = fixPlayer(v1.pending);
+  for (const t of v1.league.teams) if (t.squad) t.squad = t.squad.map(fixPlayer);
+  v1.stats = { ...newStats(), ...v1.stats, bestTier: Math.max(...v1.squad.map((p) => p.tier)) };
+  v1.style = 'balance';
+  v1.guideStep = 0;
+  v1.settings = { sound: true };
+  const d = newDaily(v1.daily.key);
+  v1.daily = { ...d, ...v1.daily, missions: d.missions, superstarBought: false };
+  // 리그가 홈·원정 18경기로 바뀌기 전 저장이면 남은 일정을 그대로 두되 경기 수는 표시로만 쓴다
+  // 진행 중이던 경기는 이벤트 형식이 달라질 수 있어 결과만 남기고 다시 시작한다
+  v1.match = null;
+  v1.version = SAVE_VERSION;
+  return v1;
 }

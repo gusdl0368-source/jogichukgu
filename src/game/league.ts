@@ -75,7 +75,7 @@ export function createLeague(seed: number, level: number, season: number, myName
     const strength = i / LEAGUE.teams;
     teams.push({
       id: `ai${i}`,
-      name: randomTeamName(rng, used),
+      name: randomTeamName(rng, used, level),
       crest: randomCrest(rng),
       squad: generateSquad(rng, () => (rng.chance(0.25 * (1 - strength)) ? Math.max(0, level - 1) : opponentTier(rng, level))),
     });
@@ -132,7 +132,7 @@ export function recordResult(league: LeagueState, homeId: string, awayId: string
 /** 리그가 높을수록 AI 팀도 전술이 좋아진다 (내 팀의 연구·스킬과 맞먹게) */
 export function leagueMods(level: number): MatchMods {
   const v = level * 0.012;
-  return { ...NO_MODS, passAcc: v, powerShot: v, counter: v, gkSave: v, stamina: v / 2, longShot: v, pressing: v, finishing: v };
+  return { ...NO_MODS, passAcc: v, powerShot: v, counter: v, gkSave: v, stamina: v / 2, longShot: v, pressing: v, finishing: v, setPiece: v * 2 };
 }
 
 export function aiSide(team: LeagueTeam, level: number): TeamSide {
@@ -157,7 +157,7 @@ export function playOtherMatches(league: LeagueState, seed: number): void {
     if (h === PLAYER_TEAM_ID || a === PLAYER_TEAM_ID) continue;
     const ht = league.teams.find((t) => t.id === h)!;
     const at = league.teams.find((t) => t.id === a)!;
-    recordResult(league, h, a, quickResult(aiSide(ht, league.level), aiSide(at, league.level), rng.seed()));
+    recordResult(league, h, a, quickResult(aiSide(ht, league.level), aiSide(at, league.level), rng.seed(), { tier: league.level }));
   }
 }
 

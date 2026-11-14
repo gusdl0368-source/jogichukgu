@@ -1,8 +1,10 @@
 import { ADS, ECONOMY, incomeMult } from '../../data/balance';
-import { GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, SPONSORS, dailyDeals } from '../../data/shop';
+import { GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, SPONSORS, SUPERSTAR_PRICE, dailyDeals } from '../../data/shop';
 import type { AdKind } from '../../game/game';
 import type { ActionHandler, App } from '../app';
 import { esc, fmt, rewardChips, rewardText, won } from '../dom';
+import { playerCard, playerInfo, statBlock } from '../cards';
+import { resumePending } from './match';
 import { openMembership, openPass } from '../shared';
 
 export function render(app: App): string {
@@ -25,6 +27,8 @@ export function render(app: App): string {
       <p class="muted" style="color:#c4cbe0;margin:0 0 8px">벤치에서 잠깐 쉬면 보상을 받아요. 하루 ${ADS.dailyLimit}번씩.</p>
       <div class="grid3">${ads.map((a) => `<button class="btn small green" data-act="ad" data-arg="${a.kind}" ${g.adsLeft(a.kind) <= 0 ? 'disabled' : ''}>📺 ${g.adsLeft(a.kind)}/${ADS.dailyLimit}<br>${a.label}</button>`).join('')}</div>
     </div>
+
+    ${renderSuperstar(app)}
 
     <div class="grid2">
       <button class="tile" data-act="open-member" style="background:linear-gradient(#ffe28a,#f0b31a);border-color:#c98f00">
@@ -67,7 +71,28 @@ export function render(app: App): string {
   </div>`;
 }
 
+function renderSuperstar(app: App): string {
+  const g = app.game;
+  const p = g.superstarOffer(app.now());
+  const bought = g.state.daily.superstarBought;
+  return `<div class="panel" style="background:linear-gradient(135deg,#2b1d4d,#5b2a86);border-color:#3b2370;color:#fff">
+    <div class="row-between"><h3 style="margin:0">🌟 오늘의 슈퍼스타 영입 제안</h3><span class="muted" style="color:#d9c8ff">매일 03:00 교체</span></div>
+    <div class="cmp" style="margin:8px 0;background:#fff;color:var(--ink)">${playerCard(p)}<div>${playerInfo(p)}${statBlock(p, undefined, false)}</div></div>
+    ${bought ? '<p style="text-align:center;margin:0"><b>오늘은 이미 영입했어요</b></p>' : `<button class="btn block gold" data-act="buy-superstar" data-name="${esc(p.name)}">영입 제안하기 ${won(SUPERSTAR_PRICE)}</button>`}
+  </div>`;
+}
+
 export const actions: Record<string, ActionHandler> = {
+  'buy-superstar'(app, _arg, el) {
+    if (app.state.pending) return app.toast('먼저 스카우트한 선수를 영입하거나 방출해주세요');
+    app.confirmPurchase(`${el.dataset.name ?? '슈퍼스타'} 영입`, won(SUPERSTAR_PRICE), () => {
+      if (app.game.buySuperstar(app.now())) {
+        app.tab = 'match';
+        app.render();
+        resumePending(app);
+      }
+    });
+  },
   ad(app, arg) {
     app.playAd(() => {
       const r = app.game.watchAd(arg as AdKind);

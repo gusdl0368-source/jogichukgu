@@ -10,7 +10,10 @@ const BASE: [number, number][] = [
 ];
 
 const W = 400;
-const H = 230;
+const H = 262;
+/** 위아래 관중석 높이 */
+const STAND = 16;
+const FH = H - STAND * 2;
 
 interface Dot {
   x: number;
@@ -39,8 +42,9 @@ export class PitchView {
    * @param squads [홈 스쿼드, 원정 스쿼드]
    * @param t 애니메이션용 시간(ms)
    */
-  draw(events: MatchEvent[], meTeam: 0 | 1, squads: [Player[], Player[]], t: number): void {
+  draw(events: MatchEvent[], meTeam: 0 | 1, squads: [Player[], Player[]], t: number, crowd = 0, goalFlash = false): void {
     const g = this.ctx;
+    this.drawStands(g, crowd, t, goalFlash);
     this.drawField(g);
 
     const last = events[events.length - 1];
@@ -72,7 +76,7 @@ export class PitchView {
       const mine = team === meTeam;
       this.dots[team].forEach((d, slot) => {
         const x = d.x * W;
-        const y = d.y * H;
+        const y = STAND + d.y * FH;
         g.fillStyle = 'rgba(0,0,0,0.25)';
         g.beginPath();
         g.ellipse(x, y + 6, 6, 2.5, 0, 0, Math.PI * 2);
@@ -97,7 +101,7 @@ export class PitchView {
     }
 
     const bx = this.ball.x * W;
-    const by = this.ball.y * H;
+    const by = STAND + this.ball.y * FH;
     g.fillStyle = '#fff';
     g.strokeStyle = '#222';
     g.lineWidth = 1;
@@ -107,28 +111,60 @@ export class PitchView {
     g.stroke();
   }
 
+  /** 관중석: 리그가 오를수록 관중이 늘고, 골이 나면 들썩인다 */
+  private drawStands(g: CanvasRenderingContext2D, crowd: number, t: number, cheer: boolean): void {
+    g.fillStyle = '#2b3348';
+    g.fillRect(0, 0, W, STAND);
+    g.fillRect(0, H - STAND, W, STAND);
+    const seats = 110;
+    for (const top of [true, false]) {
+      for (let i = 0; i < seats; i++) {
+        // 좌석마다 고정된 난수로 채워질지 정한다
+        const r = Math.sin(i * 12.9898 + (top ? 78.233 : 37.719)) * 43758.5453;
+        const fill = r - Math.floor(r);
+        if (fill > crowd) continue;
+        const x = 4 + (i / seats) * (W - 8);
+        const jump = cheer ? Math.abs(Math.sin(t / 90 + i)) * 3 : Math.sin(t / 900 + i) * 0.6;
+        const y = (top ? 6 : H - 10) - jump;
+        g.fillStyle = CROWD_COLORS[i % CROWD_COLORS.length];
+        g.fillRect(x, y, 2.6, 4);
+        g.fillStyle = '#f2c9a0';
+        g.fillRect(x + 0.3, y - 2, 2, 2);
+      }
+    }
+    // 큰 경기장은 카메라 플래시
+    if (crowd > 0.5 && Math.random() < crowd * 0.25) {
+      g.fillStyle = 'rgba(255,255,255,0.9)';
+      g.fillRect(Math.random() * W, Math.random() < 0.5 ? 3 : H - 12, 2, 2);
+    }
+  }
+
   private drawField(g: CanvasRenderingContext2D): void {
+    const T = STAND;
     for (let i = 0; i < 10; i++) {
       g.fillStyle = i % 2 ? '#3d9a4a' : '#43a350';
-      g.fillRect((i * W) / 10, 0, W / 10, H);
+      g.fillRect((i * W) / 10, T, W / 10, FH);
     }
     g.strokeStyle = 'rgba(255,255,255,0.75)';
     g.lineWidth = 2;
-    g.strokeRect(6, 6, W - 12, H - 12);
+    g.strokeRect(6, T + 4, W - 12, FH - 8);
     g.beginPath();
-    g.moveTo(W / 2, 6);
-    g.lineTo(W / 2, H - 6);
+    g.moveTo(W / 2, T + 4);
+    g.lineTo(W / 2, T + FH - 4);
     g.stroke();
+    const cy = T + FH / 2;
     g.beginPath();
-    g.arc(W / 2, H / 2, 28, 0, Math.PI * 2);
+    g.arc(W / 2, cy, 28, 0, Math.PI * 2);
     g.stroke();
-    g.strokeRect(6, H / 2 - 50, 52, 100);
-    g.strokeRect(W - 58, H / 2 - 50, 52, 100);
-    g.strokeRect(6, H / 2 - 22, 18, 44);
-    g.strokeRect(W - 24, H / 2 - 22, 18, 44);
+    g.strokeRect(6, cy - 50, 52, 100);
+    g.strokeRect(W - 58, cy - 50, 52, 100);
+    g.strokeRect(6, cy - 22, 18, 44);
+    g.strokeRect(W - 24, cy - 22, 18, 44);
     // 골대
     g.fillStyle = 'rgba(255,255,255,0.9)';
-    g.fillRect(1, H / 2 - 16, 5, 32);
-    g.fillRect(W - 6, H / 2 - 16, 5, 32);
+    g.fillRect(1, cy - 16, 5, 32);
+    g.fillRect(W - 6, cy - 16, 5, 32);
   }
 }
+
+const CROWD_COLORS = ['#e5484d', '#2f6fed', '#f5b81c', '#ffffff', '#2fb35a', '#8a5cf0'];

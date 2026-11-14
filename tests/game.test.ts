@@ -526,3 +526,158 @@ describe('밸런스 안전장치', () => {
     expect(leagueMods(8).passAcc).toBeGreaterThan(leagueMods(2).passAcc);
   });
 });
+
+describe('베타: 세계 무대', () => {
+  it('낮은 등급은 대부분 한국인, 높은 등급은 해외 선수가 많다', () => {
+    const rng = new Rng(11);
+    const krShare = (tier: number) => {
+      let kr = 0;
+      for (let i = 0; i < 400; i++) if (generatePlayer(rng, tier).nation === 'KR') kr++;
+      return kr / 400;
+    };
+    expect(krShare(0)).toBe(1);
+    expect(krShare(8)).toBeLessThan(0.2);
+  });
+
+  it('높은 등급일수록 특성 보유 선수가 많다', () => {
+    const rng = new Rng(12);
+    const share = (tier: number) => {
+      let n = 0;
+      for (let i = 0; i < 400; i++) if (generatePlayer(rng, tier).trait) n++;
+      return n / 400;
+    };
+    expect(share(8)).toBeGreaterThan(share(0) + 0.3);
+  });
+
+  it('주전 특성은 경기 보정에 더해진다', () => {
+    const g = newGame();
+    const before = g.mods().setPiece;
+    g.state.squad[9] = { ...g.state.squad[9], trait: 'freekick' };
+    expect(g.mods().setPiece).toBeCloseTo(before + 0.06);
+  });
+
+  it('경기에 반칙·카드·세트피스가 일어나고, 퇴장은 기록된다', () => {
+    const rng = new Rng(13);
+    let fouls = 0;
+    let cards = 0;
+    for (let i = 0; i < 200; i++) {
+      const a = generateSquad(rng, () => 3);
+      const b = generateSquad(rng, () => 3);
+      const r = simulateMatch({ name: 'A', squad: a, power: teamPower(a), mods: NO_MODS }, { name: 'B', squad: b, power: teamPower(b), mods: NO_MODS }, rng.seed(), { tier: 5 });
+      fouls += r.stats[0].fouls + r.stats[1].fouls;
+      cards += r.events.filter((e) => e.type === 'yellow' || e.type === 'red').length;
+      expect(r.events.filter((e) => e.type === 'red').length).toBe(r.stats[0].reds + r.stats[1].reds);
+    }
+    expect(fouls).toBeGreaterThan(100);
+    expect(cards).toBeGreaterThan(20);
+  });
+
+  it('경기 운영 방식은 라인 힘을 바꾼다 (닥공이면 더 많이 넣고 더 많이 먹는다)', () => {
+    const rng = new Rng(14);
+    const run = (style: 'attack' | 'defense') => {
+      let gf = 0;
+      let ga = 0;
+      const r2 = new Rng(99);
+      for (let i = 0; i < 300; i++) {
+        const a = generateSquad(rng, () => 3);
+        const b = generateSquad(rng, () => 3);
+        const r = simulateMatch({ name: 'A', squad: a, power: teamPower(a), mods: NO_MODS, style }, { name: 'B', squad: b, power: teamPower(b), mods: NO_MODS }, r2.seed());
+        gf += r.score[0];
+        ga += r.score[1];
+      }
+      return { gf, ga };
+    };
+    const atk = run('attack');
+    const def = run('defense');
+    expect(atk.gf).toBeGreaterThan(def.gf);
+    expect(atk.ga).toBeGreaterThan(def.ga);
+  });
+
+  it('세미프로부터는 해외 클럽 이름', () => {
+    const g = newGame();
+    g.state.league.level = 4;
+    g.state.squad = generateSquad(new Rng(15), () => 6);
+    for (let i = 0; i < 18; i++) {
+      g.startMatch(T0);
+      g.finishMatch();
+    }
+    const names = g.state.league.teams.filter((t) => t.id !== PLAYER_TEAM_ID).map((t) => t.name);
+    expect(names.every((n) => /레알|AC|스포르팅|아틀레티코|올림피크|FC|디나모|인테르|SV|라싱|데포르티보|로열/.test(n))).toBe(true);
+  });
+});
+
+describe('베타: 미션과 가이드', () => {
+  it('스카우트하면 일일 미션이 오르고, 다 하면 보상', () => {
+    const g = newGame();
+    g.state.wallet.contacts = 1000;
+    for (let i = 0; i < 100; i++) {
+      g.scout();
+      g.sellPending();
+    }
+    expect(g.missionDone('scout')).toBe(true);
+    expect(g.claimMission('scout')).not.toBeNull();
+    expect(g.claimMission('scout')).toBeNull();
+    expect(g.claimMissionBonus()).toBeNull();
+  });
+
+  it('다음 날이면 미션이 초기화된다', () => {
+    const g = newGame();
+    g.progressMission('wins', 5);
+    g.ensureDaily(T0 + 24 * HOUR);
+    expect(g.state.daily.missions.progress.wins).toBe(0);
+  });
+
+  it('가이드는 순서대로 깨고 보상을 받는다', () => {
+    const g = newGame();
+    expect(g.guide()!.name).toBe('첫 스카우트');
+    expect(g.claimGuide()).toBeNull();
+    g.scout();
+    const contacts = g.state.wallet.contacts;
+    expect(g.claimGuide()).not.toBeNull();
+    expect(g.state.wallet.contacts).toBeGreaterThan(contacts);
+    expect(g.guide()!.name).toBe('첫 영입');
+  });
+
+  it('슈퍼스타 제안: 날짜마다 같은 선수, 하루 한 번, 리그보다 두 단계 높고 특성 보유', () => {
+    const g = newGame();
+    const a = g.superstarOffer(T0);
+    expect(g.superstarOffer(T0 + HOUR).name).toBe(a.name);
+    expect(a.tier).toBe(2);
+    expect(a.trait).toBeDefined();
+    expect(g.buySuperstar(T0)).toBe(true);
+    expect(g.state.pending!.name).toBe(a.name);
+    g.sellPending();
+    expect(g.buySuperstar(T0)).toBe(false);
+  });
+});
+
+describe('베타: 저장 이전', () => {
+  it('v1 저장은 진행을 유지한 채 v2로 옮겨진다', async () => {
+    const { migrate, SAVE_VERSION } = await import('../src/game/state');
+    const g = newGame();
+    g.state.scoutLevel = 7;
+    const v1 = JSON.parse(serialize(g.state));
+    v1.version = 1;
+    for (const p of v1.squad) delete p.nation;
+    delete v1.style;
+    delete v1.settings;
+    delete v1.daily.missions;
+    v1.stats = { matches: 3, wins: 2, draws: 0, losses: 1, goals: 4, sold: 1, signed: 1, promotions: 0 };
+    const m = migrate(v1)!;
+    expect(m.version).toBe(SAVE_VERSION);
+    expect(m.scoutLevel).toBe(7);
+    expect(m.stats.wins).toBe(2);
+    expect(m.squad.every((p) => p.nation === 'KR')).toBe(true);
+    expect(m.style).toBe('balance');
+    expect(m.daily.missions.progress.scout).toBe(0);
+    const game = new Game(m);
+    expect(() => game.mods()).not.toThrow();
+    expect(game.startMatch(T0)).toBe(true);
+  });
+
+  it('모르는 버전은 거절', async () => {
+    const { migrate } = await import('../src/game/state');
+    const g = newGame();
+    expect(migrate({ ...g.state, version: 99 })).toBeNull();
+  });
+});

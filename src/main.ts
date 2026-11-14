@@ -4,6 +4,7 @@ import { loadLocal } from './storage';
 import { App } from './ui/app';
 import * as matchScreen from './ui/screens/match';
 import { openEnding, openOffline, openTutorial } from './ui/shared';
+import { setSoundEnabled } from './ui/sound';
 
 const game = new Game(loadLocal() ?? newGameState(Date.now()));
 const now = Date.now();
@@ -11,6 +12,7 @@ game.ensureDaily(now);
 game.tickResearch(now);
 const report = game.catchUp(now);
 
+setSoundEnabled(() => game.state.settings.sound);
 const app = new App(document.getElementById('app')!, game);
 app.render();
 app.save();
