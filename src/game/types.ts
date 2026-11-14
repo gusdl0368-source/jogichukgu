@@ -18,8 +18,16 @@ export type Stats = Record<StatKey, number>;
 export interface Avatar {
   skin: number;
   hair: number;
+  /** 머리 모양 0~9 */
   hairStyle: number;
+  /** 0 없음, 1 짧은 수염, 2 턱수염, 3 콧수염, 4 염소수염 */
   beard: number;
+  /** 눈썹 0~2 (예전 저장에는 없음) */
+  brow?: number;
+  /** 입 모양 0~3 (예전 저장에는 없음) */
+  mouth?: number;
+  /** 헤어밴드 0 없음, 1~3 색 (예전 저장에는 없음) */
+  acc?: number;
 }
 
 export interface Player {

@@ -25,6 +25,14 @@ export const TRAITS: TraitDef[] = [
   { id: 'clean', name: '신사', icon: '🎩', desc: '반칙·카드 줄이기', effect: 'discipline', value: 0.25 },
 ];
 
+/** 그 포지션에 어울리는 특성만: 거미손은 골키퍼만, 골키퍼는 슈팅 특성 없음 */
+const GK_ONLY = ['gloves'];
+const NOT_GK = ['freekick', 'poacher', 'cannon', 'rocket', 'longshot'];
+
+export function traitsFor(position: string): TraitDef[] {
+  return TRAITS.filter((t) => (position === 'GK' ? !NOT_GK.includes(t.id) : !GK_ONLY.includes(t.id)));
+}
+
 export function traitById(id: string | undefined): TraitDef | undefined {
   return id ? TRAITS.find((t) => t.id === id) : undefined;
 }

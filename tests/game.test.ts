@@ -681,3 +681,14 @@ describe('베타: 저장 이전', () => {
     expect(migrate({ ...g.state, version: 99 })).toBeNull();
   });
 });
+
+describe('그래픽 버전: 특성 포지션', () => {
+  it('거미손은 골키퍼만, 골키퍼는 슈팅 특성이 없다', () => {
+    const rng = new Rng(21);
+    for (let i = 0; i < 2000; i++) {
+      const p = generatePlayer(rng, 8);
+      if (p.trait === 'gloves') expect(p.position).toBe('GK');
+      if (p.position === 'GK') expect(['freekick', 'poacher', 'cannon', 'rocket', 'longshot']).not.toContain(p.trait);
+    }
+  });
+});

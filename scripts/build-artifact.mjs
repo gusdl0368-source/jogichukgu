@@ -13,6 +13,9 @@ const script = readFileSync(join(dist, js[1]), 'utf8').replace(/<\/script/gi, '<
 const style = readFileSync(join(dist, css[1]), 'utf8');
 
 const page = `<title>새벽 조기축구</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&display=swap">
 <style>${style}</style>
 <div id="app"></div>
 <script type="module">${script}</script>

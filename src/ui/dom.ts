@@ -1,5 +1,6 @@
 import { TIERS } from '../data/balance';
 import { CURRENCY_ICON, type Currency, type Reward } from '../game/types';
+import { pxIcon } from './icons';
 
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -49,7 +50,7 @@ export function duration(ms: number): string {
 export function rewardChips(r: Reward): string {
   return (Object.entries(r) as [Currency, number][])
     .filter(([, v]) => v > 0)
-    .map(([k, v]) => `<span class="chip">${CURRENCY_ICON[k]} ${fmt(v)}</span>`)
+    .map(([k, v]) => `<span class="chip">${pxIcon(k, 16)} ${fmt(v)}</span>`)
     .join('');
 }
 

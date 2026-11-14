@@ -10,6 +10,8 @@ import { confetti } from '../effects';
 import { sfx } from '../sound';
 import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } from '../shared';
 import { STYLES, type TacticStyle } from '../../game/match';
+import { drawFullTime } from '../pitch';
+import { pxIcon } from '../icons';
 import { rewardText } from '../dom';
 
 // ───────── 화면 밖 상태 ─────────
@@ -134,7 +136,7 @@ export function render(app: App): string {
   <div class="actions" style="grid-template-columns:52px 52px 1fr 84px 52px">
     <button class="sq-btn" data-act="league"><span class="ico">${TIERS[s.league.level].icon}</span>${rank}</button>
     <button class="sq-btn" data-act="stadium" id="stadium-btn"><span class="ico">🏟️</span><span id="stadium-cash">${fmt(stadium.cash)}</span>${stadium.capped ? '<span class="dot"></span>' : ''}</button>
-    <button class="scout-btn" data-act="scout" ${s.wallet.contacts <= 0 ? 'disabled' : ''}><span class="ico">🔭</span>📞 ${fmt(s.wallet.contacts)}</button>
+    <button class="scout-btn" data-act="scout" ${s.wallet.contacts <= 0 ? 'disabled' : ''}><span class="ico">${pxIcon('scout', 26)}</span><span class="cnt">${pxIcon('contacts', 13)} ${fmt(s.wallet.contacts)}</span></button>
     <button class="sq-btn" data-act="probs">스카우트<br><b style="font-size:15px">Lv.${s.scoutLevel}</b>${s.wallet.cash >= g.upgradeCost() && s.scoutLevel < MAX_SCOUT_LEVEL ? '<span class="dot"></span>' : ''}</button>
     <button class="sq-btn ${ui.autoRunning ? 'on' : ''}" data-act="auto"><span class="ico">🔁</span>${ui.autoRunning ? '자동 ON' : '자동'}</button>
   </div>`;
@@ -157,10 +159,11 @@ function renderBanner(now: number): string {
   const label = s.outcome === 'win' ? '승리!' : s.outcome === 'draw' ? '무승부' : '패배';
   const color = s.outcome === 'win' ? '#7dff9b' : s.outcome === 'draw' ? '#ffe08a' : '#ff9b9b';
   return `<div class="result-banner" id="banner">
+    <canvas id="ft-scene" width="400" height="120"></canvas>
+    <div class="ft-title">FULL-TIME</div>
+    <div class="big" style="color:${color}">${s.myScore[0]} - ${s.myScore[1]} ${label} <span class="ft-cash">💵 +${fmt(s.cash)}</span></div>
     <div class="muted" style="color:#cfd6e4">vs ${esc(s.opponentName)}</div>
-    <div class="big" style="color:${color}">${s.myScore[0]} - ${s.myScore[1]} ${label}</div>
-    <div>💵 +${fmt(s.cash)}</div>
-    <ul>${s.reasons.map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
+    <ul>${s.reasons.slice(0, 3).map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
   </div>`;
 }
 
@@ -219,6 +222,8 @@ export function draw(app: App, t: number): void {
   const events = m ? liveEvents(app, Date.now()) : [];
   const last = events[events.length - 1];
   app.pitch.draw(events, myTeam as 0 | 1, squads, t, TIERS[s.league.level].crowd, last?.type === 'goal');
+  const scene = app.root.querySelector<HTMLCanvasElement>('#ft-scene');
+  if (scene && ui.banner) drawFullTime(scene, ui.banner.summary.outcome, s.squad, t);
 }
 
 // ───────── 모달 ─────────
@@ -354,7 +359,8 @@ function runAuto(app: App): void {
     if (ui.autoLog.length > 30) ui.autoLog.shift();
     app.updateWallet();
     const sc = app.root.querySelector('.scout-btn');
-    if (sc) sc.innerHTML = `<span class="ico">🔭</span>📞 ${fmt(g.state.wallet.contacts)}`;
+    const cnt = sc?.querySelector('.cnt');
+    if (cnt) cnt.innerHTML = `${pxIcon('contacts', 13)} ${fmt(g.state.wallet.contacts)}`;
   }
   if (r.status === 'paused') {
     if (app.topModal()?.id === 'auto') app.closeModal();

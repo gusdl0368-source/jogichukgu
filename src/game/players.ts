@@ -1,6 +1,6 @@
 import { TIERS } from '../data/balance';
 import { JOBS_BY_TIER, NATIONS, type Nation } from '../data/nations';
-import { TRAITS, traitChance } from '../data/traits';
+import { traitChance, traitsFor } from '../data/traits';
 import { Rng } from './rng';
 import { FORMATION, type Player, type Position, type StatKey, type Stats, STAT_KEYS, type TeamPower } from './types';
 
@@ -104,7 +104,7 @@ export function generatePlayer(rng: Rng, tier: number, position?: Position): Pla
     stats[k] = clamp(base + offset, 1, 99);
   }
   const nation = randomNation(rng, tier);
-  const trait = rng.chance(traitChance(tier)) ? rng.pick(TRAITS).id : undefined;
+  const trait = rng.chance(traitChance(tier)) ? rng.pick(traitsFor(pos)).id : undefined;
   // 동네는 나이가 제각각, 프로는 전성기 나이
   const age = tier <= 1 ? rng.int(17, 58) : tier <= 3 ? rng.int(18, 38) : rng.int(19, 34);
   return {
@@ -121,8 +121,11 @@ export function generatePlayer(rng: Rng, tier: number, position?: Position): Pla
     avatar: {
       skin: rng.int(0, 4),
       hair: rng.int(0, 6),
-      hairStyle: rng.int(0, 5),
-      beard: rng.chance(0.3) ? rng.int(1, 2) : 0,
+      hairStyle: rng.int(0, 9),
+      beard: rng.chance(0.35) ? rng.int(1, 4) : 0,
+      brow: rng.int(0, 2),
+      mouth: rng.int(0, 3),
+      acc: rng.chance(0.12) ? rng.int(1, 3) : 0,
     },
   };
 }

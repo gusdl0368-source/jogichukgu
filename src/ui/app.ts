@@ -2,6 +2,7 @@ import { Game } from '../game/game';
 import { type GameState, newGameState } from '../game/state';
 import { CloudSave, clearLocal, saveLocal } from '../storage';
 import { esc, fmt } from './dom';
+import { pxIcon } from './icons';
 import { PitchView } from './pitch';
 import * as matchScreen from './screens/match';
 import * as storeScreen from './screens/store';
@@ -123,9 +124,9 @@ export class App {
     const w = s.wallet;
     return `<header class="topbar">
       <div class="season">시즌 ${s.league.season} · ${Math.min(s.league.round + 1, s.league.fixtures.length)}주차<small>${esc(s.teamName)}</small></div>
-      <span class="chip" id="w-cash">💵 ${fmt(w.cash)}</span>
-      <span class="chip" id="w-contacts">📞 ${fmt(w.contacts)}</span>
-      <span class="chip" id="w-gems">💎 ${fmt(w.gems)}</span>
+      <span class="chip">${pxIcon('cash')}<b id="w-cash">${fmt(w.cash)}</b></span>
+      <span class="chip">${pxIcon('contacts')}<b id="w-contacts">${fmt(w.contacts)}</b></span>
+      <span class="chip">${pxIcon('gems')}<b id="w-gems">${fmt(w.gems)}</b></span>
       <button class="icon-btn" data-act="settings">⚙️</button>
     </header>`;
   }
@@ -136,9 +137,9 @@ export class App {
       const el = this.root.querySelector(`#${id}`);
       if (el && el.textContent !== v) el.textContent = v;
     };
-    set('w-cash', `💵 ${fmt(w.cash)}`);
-    set('w-contacts', `📞 ${fmt(w.contacts)}`);
-    set('w-gems', `💎 ${fmt(w.gems)}`);
+    set('w-cash', fmt(w.cash));
+    set('w-contacts', fmt(w.contacts));
+    set('w-gems', fmt(w.gems));
   }
 
   tabHasDot(id: TabId): boolean {

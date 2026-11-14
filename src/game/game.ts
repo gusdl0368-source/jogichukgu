@@ -4,7 +4,7 @@ import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUC
 import { MAX_SKILL_LEVEL, SKILLS as SKILL_DEFS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../data/skills';
 import { DAILY_BONUS, DAILY_MISSIONS, GUIDE, type MissionKey } from '../data/missions';
 import { randomCrest, randomUserTeamName } from '../data/teams';
-import { traitById, TRAITS } from '../data/traits';
+import { traitById, traitsFor } from '../data/traits';
 import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
 import { PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
 import { type MatchMods, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
@@ -792,7 +792,7 @@ export class Game {
     const rng = new Rng(h);
     const tier = Math.min(TIERS.length - 1, this.state.league.level + 2);
     const p = generatePlayer(rng, tier);
-    return p.trait ? p : { ...p, trait: rng.pick(TRAITS).id };
+    return p.trait ? p : { ...p, trait: rng.pick(traitsFor(p.position)).id };
   }
 
   buySuperstar(now: number): boolean {

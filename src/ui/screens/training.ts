@@ -4,6 +4,7 @@ import type { Game } from '../../game/game';
 import { Rng, randomSeed } from '../../game/rng';
 import type { ActionHandler, App } from '../app';
 import { sfx } from '../sound';
+import { ballSpriteUrl, keeperSpriteUrl } from '../pitch';
 import { fmt, rewardChips, rewardText } from '../dom';
 
 /** 캠프별로 고른 난이도 */
@@ -70,7 +71,7 @@ function renderPenalty(): string {
       const k = pk!.kicks[i];
       return `<span class="${k ?? ''}">${k === 'ok' ? '○' : k === 'no' ? '✕' : i + 1}</span>`;
     }).join('')}</div>
-    <div class="penalty-goal"><div class="net"></div><div class="keeper" id="pk-keeper">🧤</div><div class="ball" id="pk-ball">⚽</div></div>
+    <div class="penalty-goal"><div class="net"></div><div class="keeper" id="pk-keeper"><img src="${keeperSpriteUrl()}" alt="골키퍼" width="60" height="72"></div><div class="ball" id="pk-ball"><img src="${ballSpriteUrl()}" alt="공" width="24" height="24"></div></div>
     ${done
       ? `<p style="text-align:center;font-size:18px"><b>${goals >= 3 ? '🎉 성공!' : '😢 실패… 막걸리는 우리가 삽니다'}</b></p><button class="btn block" data-act="pk-finish">확인</button>`
       : `<p style="text-align:center;margin:0 0 8px"><b>어디로 찰까요?</b></p>

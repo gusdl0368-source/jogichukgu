@@ -333,16 +333,36 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: rgba(10, 20, 40, 0.82);
+  justify-content: flex-start;
+  gap: 2px;
+  background: rgba(10, 20, 40, 0.88);
   color: #fff;
   text-align: center;
-  padding: 10px;
+  padding: 0 10px 8px;
+}
+.result-banner canvas {
+  width: calc(100% + 20px);
+  margin: 0 -10px 4px;
+  height: auto;
+  image-rendering: pixelated;
+  border-bottom: 3px solid #1d2433;
+}
+.ft-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 2px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 3px 0 #1d2433, 2px 0 0 #1d2433, -2px 0 0 #1d2433, 0 -2px 0 #1d2433;
+}
+.ft-cash {
+  font-size: 14px;
+  color: #ffe08a;
 }
 .result-banner .big {
-  font-size: 26px;
-  font-weight: 900;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
 }
 .result-banner ul {
   margin: 4px 0 0;
@@ -391,13 +411,42 @@ button {
 }
 .card {
   position: relative;
+  overflow: hidden;
   width: 72px;
   border-radius: 8px;
   padding: 3px 3px 2px;
-  background: var(--tier, #9aa3ad);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 30%, transparent 30%),
+    linear-gradient(180deg, var(--tier-l, #c4cad3), var(--tier, #9aa3ad) 55%, var(--tier-d, #6b7380));
+  border: 2px solid #1d2433;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 3px 0 rgba(0, 0, 0, 0.4);
   color: #fff;
   text-align: center;
+}
+/* 프로 이상: 홀로그램 줄무늬가 지나간다 */
+.card.holo::after {
+  content: '';
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.55) 48%, transparent 56%);
+  animation: holo 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes holo {
+  0% { transform: translateX(-60%); }
+  60%, 100% { transform: translateX(60%); }
+}
+/* 슈퍼스타: 무지개 테두리 */
+.card.legend {
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, var(--tier-l), var(--tier) 55%, var(--tier-d)) padding-box,
+    linear-gradient(120deg, #ff5f6d, #ffc371, #4facfe, #a18cd1, #ff5f6d) border-box;
+  background-size: 100% 100%, 300% 300%;
+  animation: rainbow 3s linear infinite;
+}
+@keyframes rainbow {
+  to { background-position: 0 0, 300% 0; }
 }
 .card .top {
   display: flex;
@@ -1052,4 +1101,265 @@ button {
 button:focus-visible {
   outline: 3px solid #ffd35a;
   outline-offset: 2px;
+}
+
+/* ═════════ 픽셀 게임 테마 (레퍼런스처럼 굵은 외곽선, 입체 버튼, 두꺼운 글꼴) ═════════ */
+:root {
+  --font-display: 'Black Han Sans', 'Jua', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --font-ui: 'Jua', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --outline: #1d2433;
+  --text-outline: 0 2px 0 #1d2433, 1.5px 0 0 #1d2433, -1.5px 0 0 #1d2433, 0 -1.5px 0 #1d2433;
+}
+img.px {
+  image-rendering: pixelated;
+  vertical-align: middle;
+  flex: none;
+}
+.btn,
+.sq-btn,
+.scout-btn,
+.tab,
+.chip,
+.segment button,
+.floater,
+.guide,
+.venue-style,
+.tile .t,
+.card .top,
+.card .nm,
+.compare-tag,
+.tier-badge,
+.prob-row,
+.check-row,
+.banner-title,
+.rare-banner,
+.panel h3,
+.linestats,
+.topbar .season {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+.page h2,
+.modal h2,
+.scoreboard .score,
+.goal-flash,
+.result-banner .big,
+.ft-title,
+.linestats b {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+.page h2,
+.modal h2 {
+  color: #fff;
+  font-size: 26px;
+  text-shadow: var(--text-outline), 0 4px 0 rgba(29, 36, 51, 0.25);
+}
+
+/* 버튼: 두꺼운 외곽선 + 위쪽 하이라이트 + 아래 그림자 */
+.btn {
+  border: 2.5px solid var(--outline);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 0 var(--outline);
+  text-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.35);
+  font-size: 16px;
+}
+.btn.gold {
+  text-shadow: none;
+}
+.btn.gray,
+.btn:disabled {
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 3px 0 var(--outline);
+}
+.btn:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+.sq-btn,
+.scout-btn {
+  border: 2.5px solid var(--outline);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.2), 0 3px 0 var(--outline);
+  text-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.4);
+}
+.scout-btn {
+  background: radial-gradient(circle at 50% 30%, #b9d8ff, #5b95f2 55%, #2f6fed);
+}
+.scout-btn .ico {
+  display: block;
+  line-height: 0;
+  margin-bottom: 2px;
+}
+.scout-btn .cnt {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 14px;
+}
+
+/* 패널과 타일 */
+.panel,
+.tile,
+.cmp {
+  border: 2.5px solid var(--outline);
+  box-shadow: 0 3px 0 rgba(29, 36, 51, 0.22);
+}
+.modal {
+  border-width: 3px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
+}
+.close-x {
+  border: 2.5px solid var(--outline);
+}
+.segment {
+  border-width: 2.5px;
+  box-shadow: 0 3px 0 rgba(29, 36, 51, 0.22);
+}
+.segment button.on {
+  text-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* 상단 바, 재화 칩 */
+.topbar {
+  border-bottom: 3px solid #0e1526;
+}
+.topbar .chip {
+  gap: 4px;
+  padding: 2px 9px 2px 5px;
+  background: #0e1526;
+  border: 2px solid #3a4766;
+  font-size: 14px;
+}
+.rewards .chip {
+  gap: 4px;
+  border: 2px solid var(--outline);
+  font-family: var(--font-ui);
+}
+
+/* 하단 탭 */
+.tabs {
+  background: #dfe5f0;
+  border-top: 3px solid var(--outline);
+}
+.tab {
+  font-size: 12px;
+  border-right: 1.5px solid #b9c2d3;
+}
+.tab .ico {
+  font-size: 26px;
+  filter: drop-shadow(0 2px 0 rgba(29, 36, 51, 0.35));
+}
+.tab.active {
+  background: #b8c6e3;
+  box-shadow: inset 0 3px 0 var(--outline);
+}
+
+/* 스코어보드 */
+.scoreboard {
+  border: 2.5px solid var(--outline);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.scoreboard .name,
+.scoreboard .pw {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  text-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.4);
+}
+.scoreboard .name {
+  font-size: 14px;
+}
+.scoreboard .score {
+  font-size: 28px;
+  letter-spacing: 1px;
+  border-left: 2.5px solid var(--outline);
+  border-right: 2.5px solid var(--outline);
+}
+.pitch-wrap {
+  border: 2.5px solid var(--outline);
+}
+.clock {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+.commentary {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: 13px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+}
+.linestats {
+  border: 2.5px solid var(--outline);
+}
+.linestats div {
+  font-weight: 400;
+}
+.linestats b {
+  font-size: 18px;
+  text-shadow: 0 1px 0 rgba(29, 36, 51, 0.2);
+}
+
+/* 포메이션 보드: 픽셀 체크 무늬 */
+.board,
+.actions {
+  background-color: #262f43;
+  background-image: repeating-conic-gradient(#262f43 0 25%, #2b354b 0 50%);
+  background-size: 14px 14px;
+}
+.card .top {
+  font-size: 13px;
+  text-shadow: var(--text-outline);
+}
+.card .nm {
+  font-size: 11px;
+  background: rgba(10, 16, 30, 0.55);
+  border-top: 1.5px solid rgba(0, 0, 0, 0.35);
+}
+.card img {
+  image-rendering: pixelated;
+}
+.card .up {
+  top: 22px;
+  right: 2px;
+}
+
+/* GOAL: 그물 무늬 위에 굵은 글씨 */
+.goal-flash {
+  font-size: 60px;
+  letter-spacing: 4px;
+  color: #ffffff;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.35) 0 2px, transparent 2px 12px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.35) 0 2px, transparent 2px 12px),
+    rgba(29, 36, 51, 0.25);
+  text-shadow: 0 5px 0 #1f4fb8, 3px 0 0 #1d2433, -3px 0 0 #1d2433, 0 -3px 0 #1d2433, 0 8px 0 #1d2433;
+}
+
+/* 등급 배지, 비교 태그 */
+.tier-badge,
+.compare-tag {
+  border: 2px solid var(--outline);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+.prob-row,
+.check-row {
+  border: 2px solid var(--outline);
+}
+.floater {
+  border: 2px solid var(--outline);
+}
+.guide {
+  border: 2px solid #0e1526;
+}
+.banner-title {
+  font-size: 18px;
+  border-top: 2.5px solid var(--outline);
+  border-bottom: 2.5px solid var(--outline);
+}
+
+.penalty-goal img {
+  display: block;
+  image-rendering: pixelated;
+}
+.penalty-goal .keeper {
+  top: 44px;
 }

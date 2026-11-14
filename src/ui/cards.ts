@@ -3,8 +3,14 @@ import { KEY_STATS_2, KEY_STATS_3, POSITION_LABEL } from '../game/players';
 import { type Player, STAT_KEYS, STAT_LABEL, type StatKey } from '../game/types';
 import { nationByCode } from '../data/nations';
 import { traitById } from '../data/traits';
-import { avatarUrl } from './avatar';
+import { avatarUrl, shade } from './avatar';
 import { esc, tierBadge } from './dom';
+
+/** 카드 배경용 등급 색 3단 (밝게, 기본, 어둡게) */
+export function tierVars(tier: number): string {
+  const c = TIERS[tier].color;
+  return `--tier:${c};--tier-l:${shade(c, 55)};--tier-d:${shade(c, -55)}`;
+}
 
 export function shortName(p: Player): string {
   return p.name.replace(/^'.*' /, '');
@@ -13,7 +19,7 @@ export function shortName(p: Player): string {
 export function playerCard(p: Player, opts: { big?: boolean; act?: string; arg?: string; up?: boolean } = {}): string {
   const trait = traitById(p.trait);
   const attrs = opts.act ? `data-act="${opts.act}" data-arg="${esc(opts.arg ?? '')}"` : '';
-  return `<button class="card ${opts.big ? 'big' : ''}" style="--tier:${TIERS[p.tier].color}" ${attrs}>
+  return `<button class="card ${opts.big ? 'big' : ''} ${p.tier >= 5 ? 'holo' : ''} ${p.tier >= 8 ? 'legend' : ''}" style="${tierVars(p.tier)}" ${attrs}>
     <div class="top"><span>${p.position}</span><span>${p.overall}</span></div>
     <img src="${avatarUrl(p.avatar)}" alt="">
     <span class="flag">${nationByCode(p.nation).flag}</span>
