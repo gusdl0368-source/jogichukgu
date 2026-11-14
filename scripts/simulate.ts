@@ -2,6 +2,7 @@
 // 사용법: npm run sim -- [일수] [하루 접속 횟수] [접속당 분]
 
 import { TIERS } from '../src/data/balance';
+import { DAILY_MISSIONS } from '../src/data/missions';
 import { CAMPS } from '../src/data/training';
 import { Game } from '../src/game/game';
 import { myRank } from '../src/game/league';
@@ -50,6 +51,12 @@ function spend(now: number): void {
     // 호루라기 다 쓰기
   }
   g.upgradeAllSkills();
+  // 가이드와 일일 미션 보상
+  while (g.claimGuide()) {
+    // 연속으로 깬 가이드 모두 받기
+  }
+  for (const m of DAILY_MISSIONS) g.claimMission(m.id);
+  g.claimMissionBonus();
 }
 
 function daily(): void {
@@ -115,6 +122,6 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
 
 console.log(`무과금 시뮬레이션: 하루 ${SESSIONS}번 × ${SESSION_MIN}분 접속`);
 console.log(log.join('\n'));
-console.log(champDay > 0 ? `\n🏆 ${champDay}일째 국가대표 리그 우승 (엔딩)` : `\n${DAYS}일 안에 엔딩 미도달`);
+console.log(champDay > 0 ? `\n🏆 ${champDay}일째 슈퍼스타 리그 우승 (엔딩)` : `\n${DAYS}일 안에 엔딩 미도달`);
 console.log('회비 출처', Object.fromEntries(Object.entries(income).map(([k, v]) => [k, Math.round(v)])));
 console.log(`경기 ${g.state.stats.matches} · 스카우트 ${g.state.scoutCount}명`);

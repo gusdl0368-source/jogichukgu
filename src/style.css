@@ -625,6 +625,7 @@ button {
   color: #f4f5f8;
 }
 .btn.small {
+  white-space: nowrap;
   min-height: 34px;
   padding: 5px 10px;
   font-size: 13px;

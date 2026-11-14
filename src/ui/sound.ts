@@ -5,13 +5,24 @@ export type Sfx = 'tap' | 'scout' | 'rare' | 'sign' | 'coin' | 'goal' | 'concede
 
 let ctx: AudioContext | null = null;
 let enabled = () => true;
+/** 브라우저는 사용자가 한 번 누르기 전에는 소리를 막는다. 그 전에는 아무것도 하지 않는다. */
+let unlocked = false;
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    unlocked = true;
+    window.removeEventListener('pointerdown', unlock);
+    window.removeEventListener('keydown', unlock);
+  };
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
+}
 
 export function setSoundEnabled(fn: () => boolean): void {
   enabled = fn;
 }
 
 function audio(): AudioContext | null {
-  if (!enabled()) return null;
+  if (!enabled() || !unlocked) return null;
   try {
     if (!ctx) {
       const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;

@@ -107,6 +107,8 @@ export const LEAGUE = {
   promotionCash: (league: number) => Math.round(3600 * incomeMult(league)),
   /** 리그 L 상대 팀 선수 등급 분포: L-1, L, L+1 비율 */
   opponentTierMix: [0.15, 0.6, 0.25],
+  /** 마지막(슈퍼스타) 리그 전용: 월드클래스:슈퍼스타 */
+  topLeagueTierMix: [0.55, 0.45, 0],
 };
 
 export const TRAINING = {

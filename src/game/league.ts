@@ -62,7 +62,9 @@ function emptyRow(): TableRow {
 
 /** 리그 단계 L의 AI 선수 등급: L-1, L, L+1을 섞는다 */
 export function opponentTier(rng: Rng, level: number): number {
-  const i = rng.weighted(LEAGUE.opponentTierMix);
+  // 마지막 리그는 위 등급이 없으니 한 단계 아래 선수를 더 섞는다 (운에만 기대는 긴 막판을 줄이려고)
+  const mix = level >= TIERS.length - 1 ? LEAGUE.topLeagueTierMix : LEAGUE.opponentTierMix;
+  const i = rng.weighted(mix);
   return Math.max(0, Math.min(TIERS.length - 1, level - 1 + i));
 }
 
