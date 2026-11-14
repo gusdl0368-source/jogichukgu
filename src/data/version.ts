@@ -1,6 +1,16 @@
-export const GAME_VERSION = '베타 0.15.0';
+export const GAME_VERSION = '베타 0.16.0';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.16.0',
+    date: '2026-11',
+    items: [
+      '기록실: 구단 → 기록실에서 통산 경기·승·득점·승격, 시즌별 순위·득점왕·라이벌 전적을 볼 수 있음',
+      '레전드: 우리 팀에서 5골 이상 넣은 선수가 떠나면 레전드로 영원히 기록',
+      '영입 비교 창에서 밀려날 선수의 골 기록을 알려줌',
+      '웹사이트로 올리면 홈 화면에 앱처럼 설치 가능 (픽셀 아이콘)',
+    ],
+  },
   {
     version: '베타 0.15.0',
     date: '2026-11',

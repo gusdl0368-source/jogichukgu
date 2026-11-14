@@ -16,7 +16,7 @@ import { sfx } from './sound';
 const ui = {
   wheelAngle: 0,
   spinning: false,
-  clubTab: 'collection' as 'collection' | 'kit' | 'crest',
+  clubTab: 'collection' as 'collection' | 'records' | 'kit' | 'crest',
   crestIcon: '',
   crestColor: '',
 };
@@ -182,13 +182,43 @@ export function openClub(app: App, tab: typeof ui.clubTab = 'collection'): void 
 function renderClub(app: App): string {
   const t = ui.clubTab;
   return `<h2>🛡️ ${esc(app.state.teamName)}</h2>
-    <div class="segment" style="grid-template-columns:repeat(3,1fr);max-width:340px">
-      <button class="${t === 'collection' ? 'on' : ''}" data-act="club-tab" data-arg="collection">선수 도감</button>
+    <div class="segment" style="grid-template-columns:repeat(4,1fr);max-width:380px">
+      <button class="${t === 'collection' ? 'on' : ''}" data-act="club-tab" data-arg="collection">도감</button>
+      <button class="${t === 'records' ? 'on' : ''}" data-act="club-tab" data-arg="records">기록실</button>
       <button class="${t === 'kit' ? 'on' : ''}" data-act="club-tab" data-arg="kit">유니폼</button>
       <button class="${t === 'crest' ? 'on' : ''}" data-act="club-tab" data-arg="crest">엠블럼</button>
     </div>
-    ${t === 'collection' ? renderCollection(app) : t === 'kit' ? renderKits(app) : renderCrest(app)}`;
+    ${t === 'collection' ? renderCollection(app) : t === 'records' ? renderRecords(app) : t === 'kit' ? renderKits(app) : renderCrest(app)}`;
 }
+
+function renderRecords(app: App): string {
+  const h = app.game.history();
+  const st = app.state.stats;
+  const current = [...app.state.squad].filter((p) => (p.goals ?? 0) > 0).sort((a, b) => (b.goals ?? 0) - (a.goals ?? 0)).slice(0, 3);
+  const seasons = [...h.seasons].reverse();
+  return `<div class="panel records-sum">
+      <div><b>${st.matches}</b><span>경기</span></div>
+      <div><b>${st.wins}</b><span>승</span></div>
+      <div><b>${st.goals}</b><span>득점</span></div>
+      <div><b>${st.promotions}</b><span>승격</span></div>
+    </div>
+    <div class="panel"><h3>👑 레전드</h3>
+      ${h.legends.length
+        ? `<div class="legend-list">${h.legends.slice(0, 10).map((l, i) => `<div class="legend-row"><span class="rk">${i + 1}</span><img class="px" src="${avatarUrl(l.avatar)}" alt="" width="34" height="34"><div class="who"><b>${esc(l.name)}</b><small>${l.position} · ${TIERS[l.tier].name} · 시즌 ${l.season}까지</small></div><span class="g">${l.goals}골</span></div>`).join('')}</div>`
+        : `<p class="muted" style="margin:0">${LEGEND_HINT}</p>`}
+      ${current.length ? `<p class="muted" style="margin:10px 0 0">지금 팀의 골잡이: ${current.map((p) => `${esc(p.name)} ${p.goals}골`).join(' · ')}</p>` : ''}
+    </div>
+    <div class="panel"><h3>📜 시즌 기록</h3>
+      ${seasons.length
+        ? `<div class="season-list">${seasons.slice(0, 20).map((r) => `<div class="season-row ${r.promoted ? 'up' : ''}">
+            <div class="sr-top"><b>시즌 ${r.season}</b> <span>${TIERS[r.level].icon} ${TIERS[r.level].name}</span> <span class="rank">${r.rank}위${r.promoted ? ' ⬆️ 승격' : ''}</span></div>
+            <div class="sr-sub">${r.won}승 ${r.drawn}무 ${r.lost}패${r.topScorer ? ` · 득점왕 ${esc(r.topScorer.name)} ${r.topScorer.goals}골` : ''}${r.rival ? ` · 🔥${esc(r.rival.name)} ${r.rival.won}승${r.rival.drawn}무${r.rival.lost}패` : ''}</div>
+          </div>`).join('')}</div>`
+        : '<p class="muted" style="margin:0">첫 시즌이 끝나면 여기에 순위와 득점왕이 기록돼요.</p>'}
+    </div>`;
+}
+
+const LEGEND_HINT = '한 선수가 우리 팀에서 5골 이상 넣고 떠나면 레전드로 남아요. 정든 골잡이를 보낼 때도 기록은 남습니다.';
 
 function renderCollection(app: App): string {
   const g = app.game;

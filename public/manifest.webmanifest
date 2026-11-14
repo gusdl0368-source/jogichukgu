@@ -1,0 +1,17 @@
+{
+  "name": "새벽 조기축구",
+  "short_name": "조기축구",
+  "description": "동네 운동장에서 세계 결승 무대까지, 한 손으로 즐기는 축구 구단 키우기",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b2440",
+  "theme_color": "#1b2440",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

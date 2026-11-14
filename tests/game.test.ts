@@ -392,6 +392,27 @@ describe('라이벌', () => {
   });
 });
 
+describe('기록실', () => {
+  it('시즌이 끝나면 기록이 남고, 5골 이상 넣은 선수가 밀려나면 레전드가 된다', () => {
+    const g = newGame(5);
+    let t = T0;
+    for (let i = 0; i < 18; i++) {
+      g.startMatch(t);
+      g.finishMatch();
+      t += HOUR;
+    }
+    const h = g.history();
+    expect(h.seasons.length).toBe(1);
+    expect(h.seasons[0].won + h.seasons[0].drawn + h.seasons[0].lost).toBe(18);
+    // 골잡이를 새 선수로 바꾸면 레전드로 남는다
+    const st = g.state.squad[9];
+    st.goals = 7;
+    g.state.pending = { ...generatePlayer(new Rng(1), 3, 'ST'), id: 'new-st' };
+    g.signPending();
+    expect(h.legends.some((l) => l.name === st.name && l.goals === 7)).toBe(true);
+  });
+});
+
 describe('연구', () => {
   it('작전판이 모자라거나 연구 중이면 시작할 수 있는 연구가 없다고 알려준다 (탭 빨간 점)', () => {
     const g = newGame();

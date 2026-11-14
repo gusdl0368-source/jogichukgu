@@ -18,6 +18,9 @@ import { Rng } from './rng';
 import { type GameState, type MatchSummary, type TournamentOpponent, dayKey, newDaily, nextReset } from './state';
 import { type Currency, type Player, type Reward, type TeamPower } from './types';
 
+/** 이만큼 골을 넣고 떠난 선수는 기록실 레전드로 남는다 */
+const LEGEND_MIN_GOALS = 5;
+
 export type AdKind = 'cash' | 'contacts' | 'gems';
 
 export interface OfflineReport {
@@ -188,6 +191,7 @@ export class Game {
     if (!p) return 0;
     const slot = this.pendingSlot();
     const old = this.state.squad[slot];
+    this.recordLegend(old);
     this.state.squad[slot] = p;
     this.state.pending = null;
     this.state.stats.signed++;
@@ -195,6 +199,20 @@ export class Game {
     const price = this.sellPrice(old);
     this.add({ cash: price });
     return price;
+  }
+
+  /** 기록실 (예전 저장이면 빈 기록으로 만든다) */
+  history(): NonNullable<GameState['history']> {
+    return (this.state.history ??= { seasons: [], legends: [] });
+  }
+
+  /** 골을 많이 넣고 떠나는 선수는 레전드로 남긴다 */
+  private recordLegend(p: Player): void {
+    if ((p.goals ?? 0) < LEGEND_MIN_GOALS) return;
+    const list = this.history().legends;
+    list.push({ name: p.name, position: p.position, tier: p.tier, nation: p.nation, avatar: p.avatar, goals: p.goals ?? 0, overall: p.overall, season: this.state.league.season });
+    list.sort((a, b) => b.goals - a.goals);
+    list.length = Math.min(list.length, 30);
   }
 
   sellPending(): number {
@@ -422,10 +440,16 @@ export class Game {
   private endSeason(): NonNullable<MatchSummary['seasonEnd']> {
     const rv = this.rival();
     const rec = this.state.league.rivalRecord;
+    const row = this.state.league.table[PLAYER_TEAM_ID];
+    const season = this.state.league.season;
+    const level = this.state.league.level;
     const r = this.endSeasonInner();
     const top = this.seasonTopScorer();
     if (top) r.topScorer = top;
     if (rv && rec) r.rival = { name: rv.name, ...rec };
+    const seasons = this.history().seasons;
+    seasons.push({ season, level, rank: r.rank, promoted: r.promoted || !!this.state.champion, won: row.won, drawn: row.drawn, lost: row.lost, topScorer: r.topScorer, rival: r.rival });
+    if (seasons.length > 60) seasons.splice(0, seasons.length - 60);
     for (const p of this.state.squad) p.seasonGoals = 0;
     return r;
   }

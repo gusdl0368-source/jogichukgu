@@ -289,6 +289,7 @@ function renderCompare(app: App): string {
   return `
     <span class="compare-tag">현재 주전</span>
     <div class="cmp">${playerCard(cur)}<div>${playerInfo(cur)}${statBlock(cur, undefined, ui.cmpFull)}</div></div>
+    ${(cur.goals ?? 0) > 0 ? `<p class="cmp-goals">⚽ 우리 팀에서 ${cur.goals}골${(cur.goals ?? 0) >= 5 ? ' · 떠나면 기록실 레전드로 남아요' : ''}</p>` : ''}
     ${isRare(app, p.tier) ? `<div class="rare-banner" style="--tier:${TIERS[p.tier].color}">✨ 대박! ${TIERS[p.tier].name} 선수 발견 ✨</div>` : ''}
     <span class="compare-tag" style="background:${better ? 'var(--green)' : 'var(--red)'}">새 선수 ${better ? '▲ 더 좋아요' : '▼ 별로예요'}</span>
     <div class="cmp new">${playerCard(p, { up: better })}<div>${playerInfo(p)}${statBlock(p, cur, ui.cmpFull)}</div></div>

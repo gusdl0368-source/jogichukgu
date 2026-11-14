@@ -6,7 +6,7 @@ import type { MatchResult, TacticStyle } from './match';
 import type { MissionKey } from '../data/missions';
 import { generateSquad } from './players';
 import { Rng, randomSeed } from './rng';
-import type { Player, Wallet } from './types';
+import type { Avatar, Player, Position, Wallet } from './types';
 
 export const SAVE_VERSION = 3;
 export const SAVE_KEY = 'jogichukgu-save-v1';
@@ -19,6 +19,30 @@ export interface CurrentMatch {
   result: MatchResult;
   myPower: number;
   oppPower: number;
+}
+
+export interface SeasonRecord {
+  season: number;
+  level: number;
+  rank: number;
+  promoted: boolean;
+  won: number;
+  drawn: number;
+  lost: number;
+  topScorer?: { name: string; goals: number };
+  rival?: { name: string; won: number; drawn: number; lost: number };
+}
+
+export interface LegendRecord {
+  name: string;
+  position: Position;
+  tier: number;
+  nation: string;
+  avatar: Avatar;
+  goals: number;
+  overall: number;
+  /** 떠난 시즌 */
+  season: number;
 }
 
 export interface MatchSummary {
@@ -147,6 +171,11 @@ export interface GameState {
   firstBuyDone: boolean;
   /** 광고 행운 스카우트가 끝나는 시각 (v3 중간 추가, 없으면 0) */
   luckyUntil?: number;
+  /** 기록실: 지난 시즌들과 팀을 떠난 레전드 (0.16 추가, 없으면 빈 기록) */
+  history?: {
+    seasons: SeasonRecord[];
+    legends: LegendRecord[];
+  };
   /** 구단 꾸미기 */
   cosmetics: { kit: string; owned: string[]; crestChanges: number };
   /** 슈퍼스타 리그 우승 = 엔딩 */
