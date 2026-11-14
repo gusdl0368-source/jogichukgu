@@ -1,7 +1,7 @@
 import { TIERS } from '../data/balance';
 import { MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, passReward } from '../data/shop';
 import type { OfflineReport } from '../game/game';
-import { SAVE_KEY, type MatchSummary } from '../game/state';
+import type { MatchSummary } from '../game/state';
 import type { ActionHandler, App } from './app';
 import { duration, esc, fmt, rewardChips, rewardText, tierBadge, won } from './dom';
 
@@ -156,13 +156,9 @@ export const SHARED_ACTIONS: Record<string, ActionHandler> = {
       render: () => `<h2>정말 처음부터?</h2><p style="text-align:center">모든 진행이 사라집니다.</p>
         <div class="btn-row"><button class="btn gray" data-act="close">취소</button><button class="btn red" data-act="reset-ok">초기화</button></div>`,
       actions: {
-        'reset-ok'() {
-          try {
-            localStorage.removeItem(SAVE_KEY);
-          } catch {
-            // 무시
-          }
-          location.reload();
+        'reset-ok'(app) {
+          app.newGame();
+          openTutorial(app);
         },
       },
     });

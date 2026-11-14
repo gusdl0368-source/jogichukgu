@@ -1,5 +1,6 @@
 import { Game } from '../game/game';
-import { SAVE_KEY, serialize } from '../game/state';
+import { type GameState, newGameState } from '../game/state';
+import { CloudSave, clearLocal, saveLocal } from '../storage';
 import { esc, fmt } from './dom';
 import { PitchView } from './pitch';
 import * as matchScreen from './screens/match';
@@ -59,6 +60,7 @@ export class App {
   private lastModalHtml = '';
   private lastSave = 0;
   private extraActions: Record<string, ActionHandler> = {};
+  readonly cloud = new CloudSave();
 
   constructor(
     public readonly root: HTMLElement,
@@ -294,13 +296,26 @@ export class App {
     if (now - this.lastSave > 5000) this.save();
   }
 
-  save(): void {
+  save(force = false): void {
     this.lastSave = this.now();
-    try {
-      localStorage.setItem(SAVE_KEY, serialize(this.game.state));
-    } catch {
-      // 저장소가 막힌 환경(시크릿 모드 등)에서도 게임은 계속 돈다
-    }
+    saveLocal(this.game.state);
+    this.cloud.save(this.game.state, force);
+  }
+
+  /** 다른 기기의 저장이나 새 게임으로 상태를 통째로 바꾼다 */
+  replaceState(state: GameState): void {
+    while (this.hasModal()) this.closeModal();
+    matchScreen.stopAuto();
+    this.game.state = state;
+    this.game.ensureDaily(this.now());
+    this.game.tickResearch(this.now());
+    this.render();
+  }
+
+  newGame(): void {
+    clearLocal();
+    this.replaceState(newGameState(this.now()));
+    this.save(true);
   }
 }
 
