@@ -6,6 +6,7 @@ import * as matchScreen from './ui/screens/match';
 import { connectCloud, openEnding, openOffline, openTutorial } from './ui/shared';
 import { setCrowd, setSoundEnabled } from './ui/sound';
 import { startupPopups } from './ui/bm';
+import { showTitle } from './ui/title';
 
 const game = new Game(loadLocal() ?? newGameState(Date.now()));
 const now = Date.now();
@@ -18,11 +19,13 @@ const app = new App(document.getElementById('app')!, game);
 app.render();
 app.save();
 
-if (!game.state.seenTutorial) openTutorial(app);
-else if (game.state.champion) openEnding(app);
-else openOffline(app, report);
-matchScreen.resumePending(app);
-startupPopups(app);
+showTitle(() => {
+  if (!game.state.seenTutorial) openTutorial(app);
+  else if (game.state.champion) openEnding(app);
+  else openOffline(app, report);
+  matchScreen.resumePending(app);
+  startupPopups(app);
+});
 
 // claude.ai에서 열렸고 이미 계정 저장을 허락했으면 이어서 쓴다 (처음엔 설정에서 직접 켠다)
 void connectCloud(app, false);

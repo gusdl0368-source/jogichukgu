@@ -336,6 +336,16 @@ describe('오프라인 진행', () => {
 });
 
 describe('연구', () => {
+  it('작전판이 모자라거나 연구 중이면 시작할 수 있는 연구가 없다고 알려준다 (탭 빨간 점)', () => {
+    const g = newGame();
+    g.state.wallet.boards = 0;
+    expect(g.canStartAnyResearch()).toBe(false);
+    g.state.wallet.boards = 10000;
+    expect(g.canStartAnyResearch()).toBe(true);
+    g.startResearch('c_pass', T0);
+    expect(g.canStartAnyResearch()).toBe(false);
+  });
+
   it('작전판을 쓰고, 시간이 지나야 레벨이 오른다. 동시에 하나만', () => {
     const g = newGame();
     g.state.wallet.boards = 10000;

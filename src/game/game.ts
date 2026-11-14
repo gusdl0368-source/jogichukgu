@@ -423,6 +423,15 @@ export class Game {
     return cur / max;
   }
 
+  /** 지금 시작할 수 있는 연구가 하나라도 있나 (작전판이 충분한지까지) */
+  canStartAnyResearch(): boolean {
+    if (this.state.research.active) return false;
+    return RESEARCH.some((n) => {
+      const lv = this.researchLevel(n.id);
+      return lv < n.maxLevel && this.researchUnlocked(n.id) && this.state.wallet.boards >= researchCost(n, lv).boards;
+    });
+  }
+
   startResearch(id: string, now: number): boolean {
     this.tickResearch(now);
     if (this.state.research.active) return false;

@@ -41,7 +41,7 @@ export function render(app: App): string {
         <div class="row-between" style="margin-bottom:8px"><span class="muted">보상</span><div class="rewards">${rewardChips(c.reward(d))}</div></div>
         ${chance !== null ? `<div class="row-between" style="margin-bottom:8px"><span class="muted">기준 파워 ⚡${fmt(c.requiredPower!(d))}</span><b style="color:${chance > 0.6 ? 'var(--green)' : chance > 0.35 ? '#d08a00' : 'var(--red)'}">예상 승률 ${Math.round(chance * 100)}%</b></div>` : ''}
         <div class="btn-row">
-          <button class="btn ${cleared > 0 && left > 0 ? '' : 'gray'}" data-act="sweep" data-arg="${c.id}" ${cleared > 0 && left > 0 ? '' : 'disabled'}>소탕 (${cleared || '-'}단계)</button>
+          <button class="btn ${cleared > 0 && left > 0 ? '' : 'gray'}" data-act="sweep" data-arg="${c.id}" ${cleared > 0 && left > 0 ? '' : 'disabled'}>${cleared > 0 ? `소탕 (${cleared}단계)` : '소탕 (기록 없음)'}</button>
           <button class="btn green" data-act="enter" data-arg="${c.id}" ${left > 0 ? '' : 'disabled'}>도전</button>
         </div>
         ${left <= 0 && g.campAdLeft(c.id) > 0 ? `<p></p><button class="btn block gold" data-act="camp-ad" data-arg="${c.id}">📺 광고 보고 입장권 +1</button>` : ''}

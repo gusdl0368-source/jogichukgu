@@ -22,7 +22,7 @@ export function render(app: App): string {
   ];
   return `<div class="page" style="background:#efe9ff">
     <h2>🏪 구단 매점</h2>
-    <p class="sub">프로토타입: 결제 버튼은 실제 결제 없이 바로 지급됩니다</p>
+    <p class="sub">체험판: 실제 결제 없이 바로 지급돼요 (과금 설계를 직접 체험해 보세요)</p>
 
     <div class="panel" style="background:#2a3346;color:#fff;border-color:#1d2433">
       <h3>🪑 벤치 휴식 (광고 보상)</h3>

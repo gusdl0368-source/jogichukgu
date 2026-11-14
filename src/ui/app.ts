@@ -172,6 +172,8 @@ export class App {
   tabHasDot(id: TabId): boolean {
     const g = this.game;
     const now = this.now();
+    // 첫 경기 두 판까지는 경기 탭만 안내한다 (처음부터 모든 탭에 빨간 점이 붙지 않게)
+    if (g.state.stats.matches < 2 && id !== 'match') return false;
     switch (id) {
       case 'tournament':
         return g.tournamentTicketsLeft() > 0 || !!g.state.tournament.pendingReward;
@@ -180,7 +182,7 @@ export class App {
       case 'match':
         return !!g.state.pending;
       case 'tactics':
-        return !g.state.research.active || Object.keys(g.state.skills.owned).some((k) => g.canUpgradeSkill(k)) || g.state.wallet.whistles >= 200;
+        return g.canStartAnyResearch() || Object.keys(g.state.skills.owned).some((k) => g.canUpgradeSkill(k)) || g.state.wallet.whistles >= 200;
       case 'store':
         return !g.state.daily.freeGems || (g.isMember(now) && !g.state.daily.membershipClaimed) || g.activeOffers(now).length > 0;
       default:
@@ -245,7 +247,7 @@ export class App {
     const el = document.createElement('div');
     el.className = 'overlay';
     el.style.zIndex = '90';
-    el.innerHTML = `<div class="modal" style="text-align:center"><h2>📺 광고 재생 중…</h2><p class="muted">프로토타입이라 실제 광고 대신 잠깐 기다립니다.</p><div class="progress"><i id="ad-bar" style="width:0%;transition:width 1.4s linear"></i></div></div>`;
+    el.innerHTML = `<div class="modal" style="text-align:center"><h2>📺 광고 재생 중…</h2><p class="muted">체험판이라 실제 광고 대신 잠깐 기다립니다.</p><div class="progress"><i id="ad-bar" style="width:0%;transition:width 1.4s linear"></i></div></div>`;
     pixelize(el);
     this.root.appendChild(el);
     requestAnimationFrame(() => {
@@ -265,7 +267,7 @@ export class App {
     this.openModal({
       render: () => `<h2>구매 확인</h2>
         <p style="text-align:center"><b>${esc(name)}</b><br>${esc(price)}</p>
-        <p class="muted" style="text-align:center">프로토타입이라 실제 결제 없이 바로 지급됩니다.</p>
+        <p class="muted" style="text-align:center">체험판이라 실제 결제 없이 바로 지급됩니다.</p>
         <div class="btn-row"><button class="btn gray" data-act="close">취소</button><button class="btn green" data-act="confirm-ok">구매</button></div>`,
       actions: {
         'confirm-ok': (app) => {

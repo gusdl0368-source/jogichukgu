@@ -138,15 +138,13 @@ export function openTutorial(app: App): void {
     id: 'tutorial',
     dismissable: false,
     render: () => `<h2>🌅 새벽 조기축구</h2>
-      <p>새벽 동네 운동장에서 시작해 <b>세계 정상</b>까지!<br><span class="muted">지역 리그 → 3부 → 2부 → 세미프로 → 프로 → 엘리트 → 월드클래스 → 슈퍼스타</span></p>
-      <ol style="line-height:1.7;padding-left:20px">
-        <li><b>🔭 스카우트</b>를 누르면 연락처 1개로 선수 1명을 찾아요.</li>
-        <li>지금 주전보다 좋으면 <b>영입</b>, 아니면 <b>방출</b>해서 회비를 받아요.</li>
-        <li>경기는 자동으로 진행돼요. <b>리그 1위</b>를 하면 승격!</li>
-        <li>회비로 <b>스카우트 레벨</b>을 올리면 더 좋은 선수가 나와요.</li>
-        <li>🏟️ 운동장에 회비와 연락처가 계속 쌓여요. 자주 수령하세요.</li>
-        <li>🎯 화면 위 <b>가이드</b>를 따라가면 보상을 받아요.</li>
-      </ol>
+      <p class="tut-lead">동네 운동장에서 시작해 <b>세계 정상</b>까지!</p>
+      <div class="tut-steps">
+        <div class="tut-step"><span class="tut-n">1</span><span class="tut-ic">🔭</span><div><b>스카우트</b><small>연락처 1개로 선수 1명을 찾아요</small></div></div>
+        <div class="tut-step"><span class="tut-n">2</span><span class="tut-ic">✍️</span><div><b>영입 또는 방출</b><small>주전보다 좋으면 영입, 아니면 팔아서 회비</small></div></div>
+        <div class="tut-step"><span class="tut-n">3</span><span class="tut-ic">🏆</span><div><b>경기는 자동</b><small>리그 1위로 승격, 8단계를 올라 세계 정상</small></div></div>
+      </div>
+      <p class="muted tut-tip">🎯 막히면 화면 위 <b>가이드</b>를 따라가세요. 보상도 줘요.</p>
       <button class="btn block green" data-act="tutorial-done">시작하기</button>`,
   });
 }
@@ -181,7 +179,8 @@ function openSettings(app: App): void {
         <p class="muted" style="margin:0 0 8px">다른 기기로 옮기거나 백업할 때 씁니다. 복사한 코드를 다른 기기의 ‘가져오기’에 붙여넣으세요.</p>
         <div class="btn-row"><button class="btn small" data-act="export-save">코드 복사</button><button class="btn small gray" data-act="import-open">가져오기</button></div>
       </div>
-      <div class="btn-row"><button class="btn gray" data-act="tutorial">게임 방법</button><button class="btn gray" data-act="patch-notes">패치 노트</button></div><p></p>
+      <div class="btn-row"><button class="btn gray" data-act="tutorial">게임 방법</button><button class="btn gray" data-act="patch-notes">패치 노트</button></div>
+      <div class="btn-row" style="margin-top:8px"><button class="btn gray" data-act="credits">만든 이야기</button></div><p></p>
       <p class="muted" style="text-align:center">새벽 조기축구 ${GAME_VERSION}</p>
       <button class="btn block red" data-act="new-game">처음부터 다시 하기</button>`,
   });
@@ -297,6 +296,26 @@ export const SHARED_ACTIONS: Record<string, ActionHandler> = {
   'patch-notes'(app) {
     openPatchNotes(app);
   },
+  credits(app) {
+    app.openModal({
+      id: 'credits',
+      render: () => `<h2>🌅 만든 이야기</h2>
+        <div class="panel"><h3>새벽 조기축구</h3>
+          <p style="margin:0">새벽 6시 학교 운동장에서 공을 차던 동네 아저씨들이 선수를 모으고 모아 세계 정상까지 올라가는 이야기입니다.
+          한 손으로, 짧게 자주 즐길 수 있게 만들었어요.</p></div>
+        <div class="panel"><h3>이렇게 만들었어요</h3>
+          <ul style="margin:0;padding-left:18px;line-height:1.7">
+            <li>그림 파일 없이 <b>코드로 그린 픽셀아트</b> (선수 얼굴 수천 가지 조합, 경기장, 아이콘)</li>
+            <li>소리 파일 없이 <b>실시간 합성한 효과음</b>과 관중 함성</li>
+            <li>경기 결과를 먼저 계산하고, 그 기록대로 <b>중계 화면이 실제 축구처럼 재생</b>돼요</li>
+            <li>밸런스는 <b>시뮬레이터로 엔딩까지 수십 번 자동 플레이</b>해 보며 맞췄어요</li>
+            <li>설치 없이 웹에서 바로, 저장은 이 기기에 자동</li>
+          </ul></div>
+        <div class="panel"><h3>사용한 글꼴</h3>
+          <p class="muted" style="margin:0">Black Han Sans, Jua (Google Fonts, SIL Open Font License 1.1)</p></div>
+        <p class="muted" style="text-align:center">${GAME_VERSION}</p>`,
+    });
+  },
   settings(app) {
     openSettings(app);
   },
@@ -327,7 +346,6 @@ export const SHARED_ACTIONS: Record<string, ActionHandler> = {
   'tutorial-done'(app) {
     app.state.seenTutorial = true;
     app.closeModal();
-    openOffer(app);
   },
   'offline-double'(app) {
     app.playAd(() => {
