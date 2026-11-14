@@ -24,6 +24,7 @@ export function playerCard(p: Player, opts: { big?: boolean; act?: string; arg?:
     <img src="${avatarUrl(p.avatar)}" alt="">
     <span class="flag">${nationByCode(p.nation).flag}</span>
     ${trait ? `<span class="trait" title="${esc(trait.name)}">${trait.icon}</span>` : ''}
+    ${p.train ? `<span class="trn">+${p.train}</span>` : ''}
     <div class="nm">${esc(shortName(p))}</div>
     ${opts.up ? '<span class="up">↑</span>' : ''}
   </button>`;

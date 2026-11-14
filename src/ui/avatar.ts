@@ -10,6 +10,14 @@ export const KIT = { main: '#2f6fed', dark: '#1f4fb8', light: '#5b8ff5', trim: '
 
 const cache = new Map<string, string>();
 
+type KitColors = { main: string; dark: string; light: string; trim: string };
+let currentKit: KitColors = KIT;
+
+/** 구단 유니폼을 바꾸면 모든 초상화에 반영된다 */
+export function setCurrentKit(k: KitColors): void {
+  currentKit = k;
+}
+
 export function shade(hex: string, amt: number): string {
   const n = parseInt(hex.slice(1, 7), 16);
   const f = (c: number) => Math.max(0, Math.min(255, Math.round(c + amt)));
@@ -22,7 +30,7 @@ function extra(a: Avatar): { brow: number; mouth: number; acc: number } {
   return { brow: a.brow ?? h % 3, mouth: a.mouth ?? (h >> 2) % 4, acc: a.acc ?? 0 };
 }
 
-export function avatarUrl(a: Avatar, kit = KIT): string {
+export function avatarUrl(a: Avatar, kit: KitColors = currentKit): string {
   const key = `${a.skin}-${a.hair}-${a.hairStyle}-${a.beard}-${a.brow}-${a.mouth}-${a.acc}-${kit.main}`;
   const hit = cache.get(key);
   if (hit) return hit;
@@ -36,7 +44,7 @@ export function avatarUrl(a: Avatar, kit = KIT): string {
   return url;
 }
 
-export function drawAvatar(g: CanvasRenderingContext2D, a: Avatar, kit = KIT): void {
+export function drawAvatar(g: CanvasRenderingContext2D, a: Avatar, kit: KitColors = KIT): void {
   const r = (x: number, y: number, w: number, h: number, color: string) => {
     g.fillStyle = color;
     g.fillRect(x, y, w, h);

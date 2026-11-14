@@ -28,6 +28,20 @@ export interface TeamKit {
 
 export const MY_KIT: TeamKit = { shirt: '#2f6fed', shorts: '#ffffff', socks: '#1f4fb8', keeper: '#21c7d9', ring: '#7dff9b' };
 export const OPP_KIT: TeamKit = { shirt: '#e5484d', shorts: '#1d2433', socks: '#b9363a', keeper: '#f4c430', ring: '#ffd0d0' };
+const OPP_KIT_ALT: TeamKit = { shirt: '#f2f4f8', shorts: '#2f6fed', socks: '#f2f4f8', keeper: '#f4c430', ring: '#cfe0ff' };
+
+/** 내 유니폼이 빨간 계열이면 상대는 흰 유니폼 */
+export function oppKitFor(mine: TeamKit): TeamKit {
+  const n = parseInt(mine.shirt.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return r > 180 && g < 120 && b < 120 ? OPP_KIT_ALT : OPP_KIT;
+}
+
+export function teamKitFrom(k: { main: string; shorts: string; socks: string; keeper: string }): TeamKit {
+  return { shirt: k.main, shorts: k.shorts, socks: k.socks, keeper: k.keeper, ring: '#7dff9b' };
+}
 
 const SPONSORS = ['바삭치킨', '튼튼철물', '행복부동산', '새벽우유', '동네약국', '번개택배', '막걸리상회', '해돋이 헬스'];
 const SPONSOR_COLORS = ['#e5484d', '#2f6fed', '#f5b81c', '#2fb35a', '#8a5cf0', '#f07a2c'];
@@ -107,6 +121,8 @@ export class PitchView {
   private ctx: CanvasRenderingContext2D;
   private dots: Dot[][] = [[], []];
   private ball: Dot = { x: 0.5, y: 0.5, vx: 0 };
+  /** 내 팀 유니폼 (구단 꾸미기) */
+  myKit: TeamKit = MY_KIT;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -171,7 +187,7 @@ export class PitchView {
       const y = TOP + d.y * FH;
       const moving = Math.abs(d.vx) > 0.0004;
       const p = squads[team][slot];
-      drawPlayerSprite(g, x, y, 1.15, mine ? MY_KIT : OPP_KIT, p?.avatar, {
+      drawPlayerSprite(g, x, y, 1.15, mine ? this.myKit : oppKitFor(this.myKit), p?.avatar, {
         keeper: slot === 0,
         frame: moving ? frame + slot : 0,
         facing: team === 0 ? 1 : -1,
@@ -391,7 +407,7 @@ export function ballSpriteUrl(): string {
  * 경기 종료 장면: 이기면 두 팔 들고 환호, 지면 고개 숙이고 퇴장, 비기면 하이파이브.
  * 레퍼런스의 FULL-TIME 컷신 같은 한 장면을 그때그때 그린다.
  */
-export function drawFullTime(canvas: HTMLCanvasElement, outcome: 'win' | 'draw' | 'loss', squad: Player[], t: number): void {
+export function drawFullTime(canvas: HTMLCanvasElement, outcome: 'win' | 'draw' | 'loss', squad: Player[], t: number, kit: TeamKit = MY_KIT): void {
   const g = canvas.getContext('2d')!;
   const w = canvas.width;
   const h = canvas.height;
@@ -452,6 +468,6 @@ export function drawFullTime(canvas: HTMLCanvasElement, outcome: 'win' | 'draw' 
     const walk = outcome === 'loss' ? ((t / 40 + i * 30) % (w + 60)) - 30 : 0;
     const x = outcome === 'loss' ? w - walk : w * (0.16 + i * 0.17);
     const y = h * 0.9 + (i % 2) * 4;
-    drawPlayerSprite(g, x, y, 3.2, MY_KIT, p?.avatar, { keeper: slot === 0, frame: Math.floor(t / 130) + i, facing: outcome === 'loss' ? -1 : 1, pose: outcome === 'loss' ? 'sad' : pose });
+    drawPlayerSprite(g, x, y, 3.2, kit, p?.avatar, { keeper: slot === 0, frame: Math.floor(t / 130) + i, facing: outcome === 'loss' ? -1 : 1, pose: outcome === 'loss' ? 'sad' : pose });
   });
 }

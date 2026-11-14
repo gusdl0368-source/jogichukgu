@@ -51,6 +51,21 @@ function spend(now: number): void {
     // 호루라기 다 쓰기
   }
   g.upgradeAllSkills();
+  // 남는 회비: 경기장 증축(수입의 기반) → 선수 훈련(싼 것부터)
+  while (!process.env.SIM_NO_STADIUM && g.state.wallet.cash > g.stadiumUpgradeCost() * 1.5 && g.upgradeStadium(now)) {
+    // 여유 있을 때만 증축
+  }
+  for (; !process.env.SIM_NO_TRAIN; ) {
+    let best = -1;
+    for (let slot = 0; slot < 11; slot++) {
+      if ((g.state.squad[slot].train ?? 0) >= 10) continue;
+      if (best < 0 || g.trainCost(slot) < g.trainCost(best)) best = slot;
+    }
+    if (best < 0 || g.trainCost(best) > g.state.wallet.cash * 0.5 || !g.trainPlayer(best)) break;
+  }
+  while (!process.env.SIM_NO_DEX && g.claimCollection()) {
+    // 도감 보상
+  }
   // 가이드와 일일 미션 보상
   while (g.claimGuide()) {
     // 연속으로 깬 가이드 모두 받기
@@ -59,8 +74,13 @@ function spend(now: number): void {
   g.claimMissionBonus();
 }
 
-function daily(): void {
+function daily(t: number): void {
   g.claimFreeGems();
+  if (!process.env.SIM_NO_DAILYBM) {
+    g.claimAttendance(t);
+    g.spinWheel('free');
+    while (g.spinWheel('ad')) {}
+  }
   for (const kind of ['cash', 'contacts', 'gems'] as const) while (g.watchAd(kind)) {}
   while (g.watchAd('stadium')) {}
   for (const c of CAMPS) {
@@ -98,7 +118,7 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
     track('운동장', () => g.collectStadium(t));
     if (g.state.daily.key !== lastDay) {
       lastDay = g.state.daily.key;
-      track('일일(광고/캠프/대회)', () => daily());
+      track('일일(광고/캠프/대회)', () => daily(t));
     }
     // 접속 중에는 경기가 계속 이어진다 (경기 75초 + 휴식 6초)
     const end = sessionStart + SESSION_MIN * MIN;

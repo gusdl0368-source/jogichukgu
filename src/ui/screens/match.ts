@@ -8,6 +8,7 @@ import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../c
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
 import { confetti } from '../effects';
 import { sfx } from '../sound';
+import { renderQuickBar, renderStadiumUpgrade, renderTraining } from '../bm';
 import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } from '../shared';
 import { STYLES, type TacticStyle } from '../../game/match';
 import { drawFullTime } from '../pitch';
@@ -123,13 +124,9 @@ export function render(app: App): string {
       <div>수비<b>${power.def}</b></div>
       <div class="total">팀 파워<b>${power.total}</b></div>
     </div>
+    ${renderQuickBar(app)}
   </div>
   <div class="board" style="position:relative">
-    <div class="floaters">
-      <button class="floater green" data-act="missions"><span class="ico">📅</span>미션${g.missionsClaimable() > 0 ? '<span class="dot"></span>' : ''}</button>
-      <button class="floater" data-act="pass"><span class="ico">🎟️</span>시즌 패스${g.passClaimable() > 0 ? '<span class="dot"></span>' : ''}</button>
-      <button class="floater purple" data-act="membership"><span class="ico">💳</span>정회원${g.isMember(now) && !s.daily.membershipClaimed ? '<span class="dot"></span>' : ''}</button>
-    </div>
     <div class="formation">
       ${rows.map((r) => `<div class="row">${r.map((slot) => playerCard(s.squad[slot], { act: 'player', arg: String(slot) })).join('')}</div>`).join('')}
     </div>
@@ -228,7 +225,7 @@ export function draw(app: App, t: number): void {
   const last = events[events.length - 1];
   app.pitch.draw(events, myTeam as 0 | 1, squads, t, TIERS[s.league.level].crowd, last?.type === 'goal');
   const scene = app.root.querySelector<HTMLCanvasElement>('#ft-scene');
-  if (scene && ui.banner) drawFullTime(scene, ui.banner.summary.outcome, s.squad, t);
+  if (scene && ui.banner) drawFullTime(scene, ui.banner.summary.outcome, s.squad, t, app.pitch.myKit);
 }
 
 // ───────── 모달 ─────────
@@ -317,7 +314,7 @@ function renderStadium(app: App): string {
       <button class="btn" data-act="collect">수령하기</button>
       <button class="btn green" data-act="stadium-ad" ${g.adsLeft('stadium') <= 0 ? 'disabled' : ''}>📺 +💵${fmt(ADS.cash * incomeMult(g.state.league.level))} (${g.adsLeft('stadium')}/${ADS.dailyLimit})</button>
     </div>
-    <p class="muted" style="text-align:center">리그가 올라갈수록 운동장 수입이 커집니다.</p>`;
+    ${renderStadiumUpgrade(app)}`;
 }
 
 function renderLeague(app: App): string {
@@ -339,7 +336,8 @@ function renderPlayer(app: App, slot: number): string {
   return `<h2>${FORMATION[slot]} 주전</h2>
     <div class="cmp">${playerCard(p, { big: true })}<div>${playerInfo(p)}${summaryStats(p)}</div></div>
     <div class="panel"><h3>전체 능력치</h3>${statBlock(p, undefined, true)}</div>
-    <p class="muted" style="text-align:center">더 좋은 ${FORMATION[slot]} 선수를 스카우트하면 교체할 수 있어요. 밀려난 선수는 자동으로 방출됩니다(💵${fmt(app.game.sellPrice(p))}).</p>`;
+    ${renderTraining(app, slot)}
+    <p class="muted" style="text-align:center">더 좋은 ${FORMATION[slot]} 선수를 영입하면 교체돼요. 훈련 레벨은 그 선수에게만 남습니다.</p>`;
 }
 
 // ───────── 자동 스카우트 ─────────
@@ -458,7 +456,7 @@ export const actions: Record<string, ActionHandler> = {
     app.openModal({ render: () => renderLeague(app) });
   },
   player(app, arg) {
-    app.openModal({ render: () => renderPlayer(app, Number(arg)) });
+    app.openModal({ id: 'player', render: () => renderPlayer(app, Number(arg)) });
   },
   pass(app) {
     openPass(app);

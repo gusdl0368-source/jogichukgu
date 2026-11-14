@@ -1394,3 +1394,239 @@ img.pe {
   height: 75%;
   vertical-align: middle;
 }
+
+/* ═════════ 리텐션·수익화 화면 ═════════ */
+.quickbar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  margin: 0 8px 6px;
+}
+.qb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 0 3px;
+  border-radius: 10px;
+  background: #24345a;
+  border: 2px solid #0e1526;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.15), 0 2px 0 #0e1526;
+  color: #e7ecf8;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.qb .qb-ico img.pe {
+  height: 22px;
+}
+.qb.hot {
+  background: linear-gradient(#ff8a5b, #e5484d);
+  animation: glow 1s ease-in-out infinite alternate;
+}
+.qb .dot {
+  top: -4px;
+  right: -2px;
+}
+.attend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.att-day {
+  position: relative;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: #fff;
+  border: 2.5px solid var(--outline);
+  text-align: center;
+  font-family: var(--font-ui);
+}
+.att-day .rewards {
+  justify-content: center;
+}
+.att-day .rewards .chip {
+  padding: 1px 5px 1px 3px;
+  font-size: 11px;
+}
+.att-day.big {
+  grid-column: span 2;
+  background: linear-gradient(#fff3cf, #ffe28a);
+}
+.att-day.today {
+  background: #dcffe6;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(47, 179, 90, 0.35);
+}
+.att-day.done {
+  opacity: 0.55;
+}
+.att-check {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+}
+.att-n {
+  font-size: 13px;
+}
+.wheel-wrap {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin: 6px auto 14px;
+}
+.wheel {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 4px solid var(--outline);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 4px rgba(255, 255, 255, 0.4);
+}
+.wheel-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70px;
+  margin: -8px 0 0 -35px;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: #fff;
+  text-shadow: var(--text-outline);
+  transform-origin: 50% 50%;
+}
+.wheel-pointer {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  margin-left: -12px;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 22px solid var(--red);
+  filter: drop-shadow(0 2px 0 var(--outline));
+}
+.wheel-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid var(--outline);
+}
+.offer-modal {
+  background: radial-gradient(circle at 50% 20%, #fff3cf, var(--panel) 65%);
+  border-color: var(--gold);
+}
+.offer {
+  position: relative;
+  text-align: center;
+}
+.offer-ribbon {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-ui);
+  border: 2px solid var(--outline);
+}
+.offer-ribbon.small {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  font-size: 12px;
+}
+.offer-card {
+  position: relative;
+  border-color: var(--gold);
+  background: #fffaf0;
+}
+.offer-timer {
+  margin: 0;
+  color: var(--red);
+  font-family: var(--font-ui);
+}
+.first-buy {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  white-space: nowrap;
+  border: 1.5px solid var(--outline);
+}
+.dex {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2.5px solid var(--outline);
+}
+.dex-row {
+  display: grid;
+  grid-template-columns: 26px repeat(9, 1fr);
+  gap: 3px;
+  align-items: center;
+}
+.dex-row i {
+  display: block;
+  height: 16px;
+  border-radius: 3px;
+  background: #e3e7ee;
+}
+.dex-row i.on {
+  background: var(--c);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+.dex-head i {
+  height: 6px;
+}
+.pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pick-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #fff;
+  border: 2.5px solid var(--outline);
+  font-size: 20px;
+}
+.pick-btn.on {
+  box-shadow: 0 0 0 3px var(--gold);
+}
+.train-stars {
+  color: #f5b81c;
+  letter-spacing: -1px;
+  text-shadow: 0 1px 0 var(--outline);
+}
+
+.card .trn {
+  position: absolute;
+  left: 3px;
+  bottom: 17px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: #f5b81c;
+  color: #3d2600;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  border: 1.5px solid var(--outline);
+}

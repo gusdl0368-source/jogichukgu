@@ -7,6 +7,9 @@ import type { Player } from './types';
 
 export const PLAYER_TEAM_ID = 'me';
 
+/** AI 팀이 리그 단계마다 받는 팀 파워 보너스 */
+export const AI_POWER_PER_LEVEL = 0.018;
+
 export interface LeagueTeam {
   id: string;
   name: string;
@@ -139,7 +142,8 @@ export function leagueMods(level: number): MatchMods {
 
 export function aiSide(team: LeagueTeam, level: number): TeamSide {
   const squad = team.squad!;
-  return { name: team.name, squad, power: teamPower(squad), mods: leagueMods(level) };
+  // 높은 리그 팀은 훈련·연구도 되어 있다: 리그 단계마다 팀 파워 +1.8%
+  return { name: team.name, squad, power: teamPower(squad, level * AI_POWER_PER_LEVEL), mods: leagueMods(level) };
 }
 
 /** 이번 라운드에서 내 경기 상대와 홈/원정 여부 */

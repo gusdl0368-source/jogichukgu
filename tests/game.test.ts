@@ -259,9 +259,9 @@ describe('운동장 수익', () => {
   it('시간에 비례해 쌓이고 상한에서 멈춘다', () => {
     const g = newGame();
     const r = g.stadiumRates();
-    const p1 = g.stadiumPending(T0 + 100 * 1000);
-    expect(p1.cash).toBe(Math.floor(100 * r.cashPerSec));
-    expect(p1.contacts).toBe(1);
+    const p1 = g.stadiumPending(T0 + 120 * 1000);
+    expect(p1.cash).toBe(Math.floor(120 * r.cashPerSec));
+    expect(p1.contacts).toBe(Math.floor(120 / r.contactEverySec));
     const far = g.stadiumPending(T0 + 100 * HOUR);
     expect(far.capped).toBe(true);
     expect(far.cash).toBe(Math.floor(r.capHours * 3600 * r.cashPerSec));
@@ -275,10 +275,12 @@ describe('운동장 수익', () => {
     expect(g.stadiumPending(T0 + 200 * 1000).cash).toBe(0);
   });
 
-  it('연락처 자투리 시간은 이월된다 (60초씩 세 번 = 180초 = 2개)', () => {
+  it('연락처 자투리 시간은 이월된다 (짧게 여러 번 받아도 합계는 같다)', () => {
     const g = newGame();
     const before = g.state.wallet.contacts;
-    for (let i = 1; i <= 3; i++) g.collectStadium(T0 + i * 60 * 1000);
+    const every = g.stadiumRates().contactEverySec;
+    const step = (every * 2) / 3;
+    for (let i = 1; i <= 3; i++) g.collectStadium(T0 + i * step * 1000);
     expect(g.state.wallet.contacts).toBe(before + 2);
   });
 });

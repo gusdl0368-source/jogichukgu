@@ -27,8 +27,8 @@ export function stadiumUpgradeCost(level: number): number {
   return Math.round(4000 * Math.pow(2.25, level));
 }
 
-/** 레벨당 운동장 회비 +15%, 오프라인 상한 +0.5시간 */
-export const STADIUM_PER_LEVEL = { cash: 0.15, capHours: 0.5 };
+/** 레벨당 운동장 회비 +8%, 오프라인 상한 +0.5시간 */
+export const STADIUM_PER_LEVEL = { cash: 0.08, capHours: 0.5 };
 
 export const STADIUM_NAMES = ['공터', '흙 운동장', '인조잔디', '관중석 한 줄', '조명탑', '전광판', '지붕 관중석', '2층 관중석', 'VIP 박스', '돔 구장'];
 
@@ -40,9 +40,9 @@ export function stadiumName(level: number): string {
 
 export const MAX_TRAIN = 10;
 
-/** 등급 t 선수의 훈련 lv → lv+1 비용 (회비) */
-export function trainCost(tier: number, level: number): number {
-  return Math.round(250 * Math.pow(3.1, tier) * Math.pow(1.45, level));
+/** 훈련 lv → lv+1 비용: 지금 리그 운동장 수입 2시간치에서 시작해 레벨마다 1.7배 */
+export function trainCost(league: number, level: number): number {
+  return Math.round(2 * 3600 * ECONOMY.stadiumCashPerSec * incomeMult(league) * Math.pow(1.7, level));
 }
 
 // ───────── 도감 ─────────
@@ -50,15 +50,15 @@ export function trainCost(tier: number, level: number): number {
 export const COLLECTION_SIZE = NATIONS.length * TIERS.length;
 
 export const COLLECTION_MILESTONES: { count: number; reward: Reward; power: number }[] = [
-  { count: 5, reward: { gems: 20 }, power: 0.005 },
-  { count: 12, reward: { gems: 30, contacts: 100 }, power: 0.005 },
-  { count: 25, reward: { gems: 50 }, power: 0.01 },
-  { count: 40, reward: { gems: 80, contacts: 300 }, power: 0.01 },
-  { count: 60, reward: { gems: 120 }, power: 0.01 },
-  { count: 80, reward: { gems: 160, contacts: 500 }, power: 0.015 },
-  { count: 100, reward: { gems: 220 }, power: 0.015 },
-  { count: 120, reward: { gems: 300 }, power: 0.02 },
-  { count: 135, reward: { gems: 500 }, power: 0.03 },
+  { count: 5, reward: { gems: 20 }, power: 0.002 },
+  { count: 12, reward: { gems: 30, contacts: 100 }, power: 0.003 },
+  { count: 25, reward: { gems: 50 }, power: 0.005 },
+  { count: 40, reward: { gems: 80, contacts: 300 }, power: 0.005 },
+  { count: 60, reward: { gems: 120 }, power: 0.005 },
+  { count: 80, reward: { gems: 160, contacts: 500 }, power: 0.007 },
+  { count: 100, reward: { gems: 220 }, power: 0.007 },
+  { count: 120, reward: { gems: 300 }, power: 0.008 },
+  { count: 135, reward: { gems: 500 }, power: 0.01 },
 ];
 
 export function collectionKey(nation: string, tier: number): string {

@@ -6,6 +6,7 @@ import { DAILY_BONUS, DAILY_MISSIONS } from '../data/missions';
 import { GAME_VERSION, PATCH_NOTES } from '../data/version';
 import { sfx } from './sound';
 import { resumePending } from './screens/match';
+import { BM_ACTIONS, openOffer } from './bm';
 import type { ActionHandler, App } from './app';
 import { duration, esc, fmt, rewardChips, rewardText, tierBadge, won } from './dom';
 
@@ -84,6 +85,8 @@ function renderMembership(app: App): string {
 
 export function openSeasonEnd(app: App, s: MatchSummary): void {
   const e = s.seasonEnd!;
+  // 승격 패키지는 시즌 종료 창 밑에 깔아 두고, 닫으면 보이게
+  if (e.promoted) openOffer(app);
   app.openModal({
     id: 'season',
     render: () => `<div class="ending">
@@ -124,7 +127,7 @@ export function openOffline(app: App, r: OfflineReport): void {
       <p style="text-align:center">${duration(r.seconds * 1000)} 동안 자리를 비웠어요.</p>
       ${r.matches.length ? `<div class="panel"><h3>그동안 치른 경기</h3>${r.matches.map((m) => `<div class="row-between"><span>vs ${esc(m.opponentName)}</span><b>${m.myScore[0]} - ${m.myScore[1]} ${m.outcome === 'win' ? '승' : m.outcome === 'draw' ? '무' : '패'}</b></div>`).join('')}</div>` : ''}
       <div class="panel" style="text-align:center"><h3>🏟️ 운동장에 쌓인 수익</h3><b style="font-size:18px">💵 ${fmt(stadium.cash)} · 📞 ${stadium.contacts}</b></div>
-      <button class="btn block green" data-act="offline-collect">수령하고 시작</button>`,
+      <div class="btn-row"><button class="btn" data-act="offline-collect">수령</button><button class="btn gold" data-act="offline-double" ${app.game.offlineDoubleLeft() > 0 ? '' : 'disabled'}>📺 2배로 받기</button></div>`,
   });
 }
 
@@ -256,6 +259,7 @@ function openPatchNotes(app: App): void {
 }
 
 export const SHARED_ACTIONS: Record<string, ActionHandler> = {
+  ...BM_ACTIONS,
   'claim-mission'(app, arg) {
     const r = app.game.claimMission(arg as (typeof DAILY_MISSIONS)[number]['id']);
     if (r) {
@@ -321,6 +325,15 @@ export const SHARED_ACTIONS: Record<string, ActionHandler> = {
   'tutorial-done'(app) {
     app.state.seenTutorial = true;
     app.closeModal();
+    openOffer(app);
+  },
+  'offline-double'(app) {
+    app.playAd(() => {
+      const got = app.game.collectStadium(app.now());
+      app.game.doubleOffline(got);
+      if (app.topModal()?.id === 'offline') app.closeModal();
+      app.toast(`📺 2배! 💵+${fmt(got.cash * 2)} 📞+${got.contacts * 2}`);
+    });
   },
   'offline-collect'(app) {
     const got = app.game.collectStadium(app.now());

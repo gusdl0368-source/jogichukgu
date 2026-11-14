@@ -4,6 +4,9 @@ import { CloudSave, clearLocal, saveLocal } from '../storage';
 import { esc, fmt } from './dom';
 import { pxIcon } from './icons';
 import { pixelize } from './pixelEmoji';
+import { BM_ACTIONS, kitColors, tickQuickBar } from './bm';
+import { setCurrentKit } from './avatar';
+import { teamKitFrom } from './pitch';
 import { PitchView } from './pitch';
 import * as matchScreen from './screens/match';
 import * as storeScreen from './screens/store';
@@ -85,6 +88,7 @@ export class App {
   // ───────── 렌더 ─────────
 
   render(): void {
+    this.applyKit();
     this.root.innerHTML = `
       ${this.renderTopbar()}
       <div class="content" id="content">${SCREENS[this.tab].render(this)}</div>
@@ -103,6 +107,7 @@ export class App {
 
   /** 현재 탭 내용만 다시 그린다 (스크롤 위치 유지) */
   refresh(): void {
+    this.applyKit();
     const content = this.root.querySelector<HTMLElement>('#content');
     if (!content) return this.render();
     const scroll = content.scrollTop;
@@ -121,6 +126,12 @@ export class App {
       if (!has && dot) dot.remove();
     });
     this.renderModal(true);
+  }
+
+  private applyKit(): void {
+    const k = this.game.kit();
+    setCurrentKit(kitColors(k));
+    this.pitch.myKit = teamKitFrom(k);
   }
 
   private renderTopbar(): string {
@@ -157,7 +168,7 @@ export class App {
       case 'tactics':
         return !g.state.research.active || Object.keys(g.state.skills.owned).some((k) => g.canUpgradeSkill(k)) || g.state.wallet.whistles >= 200;
       case 'store':
-        return !g.state.daily.freeGems || (g.isMember(now) && !g.state.daily.membershipClaimed);
+        return !g.state.daily.freeGems || (g.isMember(now) && !g.state.daily.membershipClaimed) || g.activeOffers(now).length > 0;
       default:
         return false;
     }
@@ -278,7 +289,7 @@ export class App {
       return;
     }
     const modalAct = this.topModal()?.actions?.[act];
-    const handler = modalAct ?? SCREENS[this.tab].actions[act] ?? this.extraActions[act] ?? SHARED_ACTIONS[act];
+    const handler = modalAct ?? SCREENS[this.tab].actions[act] ?? this.extraActions[act] ?? SHARED_ACTIONS[act] ?? BM_ACTIONS[act];
     if (!handler) {
       console.warn('unknown action', act);
       return;
@@ -319,6 +330,7 @@ export class App {
       if (this.tab === 'tactics') this.refresh();
     }
     matchScreen.lifecycle(this, now);
+    if (this.tab === 'match') tickQuickBar(this, now);
     try {
       SCREENS[this.tab].tick?.(this, now);
     } catch (e) {

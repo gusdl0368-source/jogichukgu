@@ -67,7 +67,7 @@ export function incomeMult(league: number): number {
 export const ECONOMY = {
   /** 운동장 수익: 초당 회비, 연락처 1개당 초 */
   stadiumCashPerSec: 0.5,
-  stadiumContactEverySec: 90,
+  stadiumContactEverySec: 115,
   /** 오프라인 누적 상한(시간) */
   stadiumCapHours: 8,
   startCash: 200,

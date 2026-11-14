@@ -2,9 +2,11 @@ import { ADS, ECONOMY, incomeMult } from '../../data/balance';
 import { GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, SPONSORS, SUPERSTAR_PRICE, dailyDeals } from '../../data/shop';
 import type { AdKind } from '../../game/game';
 import type { ActionHandler, App } from '../app';
-import { esc, fmt, rewardChips, rewardText, won } from '../dom';
+import { duration, esc, fmt, rewardChips, rewardText, won } from '../dom';
 import { playerCard, playerInfo, statBlock } from '../cards';
 import { resumePending } from './match';
+import { openClub } from '../bm';
+import { OFFERS } from '../../data/bm';
 import { openMembership, openPass } from '../shared';
 
 export function render(app: App): string {
@@ -28,7 +30,12 @@ export function render(app: App): string {
       <div class="grid3">${ads.map((a) => `<button class="btn small green" data-act="ad" data-arg="${a.kind}" ${g.adsLeft(a.kind) <= 0 ? 'disabled' : ''}>📺 ${g.adsLeft(a.kind)}/${ADS.dailyLimit}<br>${a.label}</button>`).join('')}</div>
     </div>
 
+    ${renderOffers(app)}
     ${renderSuperstar(app)}
+    <div class="grid2" style="margin-bottom:12px">
+      <button class="tile" data-act="qb-wheel"><div class="big-ico">🎡</div><div class="t">행운 룰렛</div><div class="muted">${g.wheelSpinsLeft().free ? '오늘 무료!' : '광고·젬으로 돌리기'}</div>${g.wheelSpinsLeft().free ? '<span class="dot" style="top:4px;right:4px"></span>' : ''}</button>
+      <button class="tile" data-act="open-kits"><div class="big-ico">👕</div><div class="t">구단 꾸미기</div><div class="muted">유니폼 · 엠블럼</div></button>
+    </div>
 
     <div class="grid2">
       <button class="tile" data-act="open-member" style="background:linear-gradient(#ffe28a,#f0b31a);border-color:#c98f00">
@@ -53,7 +60,8 @@ export function render(app: App): string {
         <div class="big-ico">💎</div><div class="t">${ECONOMY.dailyFreeGems}</div><div class="btn small ${s.daily.freeGems ? 'gray' : 'green'}">${s.daily.freeGems ? '내일 또' : '무료'}</div>
       </button>
       ${GEM_PACKS.map((p) => `<button class="tile" data-act="buy" data-arg="${p.id}" data-name="${esc(p.name)}" data-price="${p.price}">
-        <div class="big-ico">💎</div><div class="t">${fmt(p.gems)}</div><div class="btn small">${won(p.price)}</div>
+        ${s.firstBuyDone ? '' : '<span class="first-buy">첫 구매 2배</span>'}
+        <div class="big-ico">💎</div><div class="t">${fmt(s.firstBuyDone ? p.gems : p.gems * 2)}</div><div class="btn small">${won(p.price)}</div>
       </button>`).join('')}
     </div>
 
@@ -71,6 +79,21 @@ export function render(app: App): string {
   </div>`;
 }
 
+function renderOffers(app: App): string {
+  const now = app.now();
+  const offers = app.game.activeOffers(now);
+  if (!offers.length) return '';
+  return offers.map((o) => {
+    const def = OFFERS[o.id];
+    return `<div class="panel offer-card">
+      <span class="offer-ribbon small">${esc(def.value)}</span>
+      <div class="row-between"><h3 style="margin:0">🎁 ${esc(def.name)}</h3><span class="muted">⏰ ${duration(o.endsAt - now)}</span></div>
+      <div class="rewards" style="margin:8px 0">${rewardChips(def.reward(app.state.league.level))}</div>
+      <button class="btn block gold" data-act="buy-offer" data-arg="${o.id}">${won(def.price)}</button>
+    </div>`;
+  }).join('');
+}
+
 function renderSuperstar(app: App): string {
   const g = app.game;
   const p = g.superstarOffer(app.now());
@@ -83,6 +106,9 @@ function renderSuperstar(app: App): string {
 }
 
 export const actions: Record<string, ActionHandler> = {
+  'open-kits'(app) {
+    openClub(app, 'kit');
+  },
   'buy-superstar'(app, _arg, el) {
     if (app.state.pending) return app.toast('먼저 스카우트한 선수를 영입하거나 방출해주세요');
     app.confirmPurchase(`${el.dataset.name ?? '슈퍼스타'} 영입`, won(SUPERSTAR_PRICE), () => {

@@ -862,7 +862,7 @@ export class Game {
 
   trainCost(slot: number): number {
     const p = this.state.squad[slot];
-    return trainCost(p.tier, p.train ?? 0);
+    return trainCost(this.state.league.level, p.train ?? 0);
   }
 
   /** 주전 한 명의 모든 능력치 +1 (최대 10번). 선수를 바꾸면 훈련도 사라진다 */
