@@ -3,6 +3,7 @@ import { type GameState, newGameState } from '../game/state';
 import { CloudSave, clearLocal, saveLocal } from '../storage';
 import { esc, fmt } from './dom';
 import { pxIcon } from './icons';
+import { pixelize } from './pixelEmoji';
 import { PitchView } from './pitch';
 import * as matchScreen from './screens/match';
 import * as storeScreen from './screens/store';
@@ -94,6 +95,7 @@ export class App {
         </button>`).join('')}
       </nav>
       <div id="modal-root"></div>`;
+    pixelize(this.root);
     SCREENS[this.tab].mounted?.(this);
     this.lastModalHtml = '';
     this.renderModal();
@@ -106,7 +108,9 @@ export class App {
     const scroll = content.scrollTop;
     const top = this.root.querySelector('.topbar');
     if (top) top.outerHTML = this.renderTopbar();
+    pixelize(this.root.querySelector('.topbar'));
     content.innerHTML = SCREENS[this.tab].render(this);
+    pixelize(content);
     content.scrollTop = scroll;
     SCREENS[this.tab].mounted?.(this);
     this.root.querySelectorAll<HTMLElement>('.tab').forEach((el) => {
@@ -196,6 +200,7 @@ export class App {
     if (!force && html === this.lastModalHtml) return;
     const prevScroll = root.querySelector('.modal')?.scrollTop ?? 0;
     root.innerHTML = html;
+    pixelize(root);
     const modal = root.querySelector('.modal');
     if (modal) modal.scrollTop = prevScroll;
     this.lastModalHtml = html;
@@ -205,6 +210,7 @@ export class App {
     const el = document.createElement('div');
     el.className = 'toast';
     el.textContent = msg;
+    pixelize(el);
     this.root.appendChild(el);
     setTimeout(() => el.remove(), 1900);
   }
@@ -215,6 +221,7 @@ export class App {
     el.className = 'overlay';
     el.style.zIndex = '90';
     el.innerHTML = `<div class="modal" style="text-align:center"><h2>📺 광고 재생 중…</h2><p class="muted">프로토타입이라 실제 광고 대신 잠깐 기다립니다.</p><div class="progress"><i id="ad-bar" style="width:0%;transition:width 1.4s linear"></i></div></div>`;
+    pixelize(el);
     this.root.appendChild(el);
     requestAnimationFrame(() => {
       const bar = el.querySelector<HTMLElement>('#ad-bar');

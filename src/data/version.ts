@@ -1,6 +1,14 @@
-export const GAME_VERSION = '베타 0.9.2';
+export const GAME_VERSION = '베타 0.9.3';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.9.3',
+    date: '2026-11',
+    items: [
+      '하단 탭·설정 아이콘을 손으로 찍은 픽셀 아이콘으로 교체',
+      '스킬·특성·연구·캠프·국기 등 화면의 모든 이모지를 외곽선 있는 픽셀 아이콘으로 통일',
+    ],
+  },
   {
     version: '베타 0.9.2',
     date: '2026-11',

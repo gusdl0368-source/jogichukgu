@@ -93,6 +93,91 @@ const SPRITES: Record<string, Sprite> = {
       '............',
     ],
   },
+  trophy: {
+    pal: { k: '#3d2600', y: '#f5b81c', Y: '#c98a0b', l: '#ffe28a' },
+    rows: [
+      '..kkkkkkkkkk..',
+      'kkkylyyyyyYkkk',
+      'kyklyyyyyyYkyk',
+      'kyklyyyyyyYkyk',
+      '.kklyyyyyyYkk.',
+      '...klyyyyYk...',
+      '....kyyyYk....',
+      '.....kyYk.....',
+      '.....kyYk.....',
+      '....kkyYkk....',
+      '...kyyyyYYk...',
+      '...kkkkkkkk...',
+    ],
+  },
+  boot: {
+    pal: { k: '#13234a', b: '#3a7be6', B: '#1f4fb8', w: '#ffffff' },
+    rows: [
+      '..............',
+      '..kkkk........',
+      '..kbbk........',
+      '..kbwk........',
+      '..kbbk........',
+      '..kbwkkkk.....',
+      '..kbbbbbbkk...',
+      '.kbwbwbbbbbkk.',
+      '.kbbbbbbbbbbbk',
+      '.kBBBBBBBBBBBk',
+      '..kwkkwkkwkkk.',
+      '..............',
+    ],
+  },
+  ball: {
+    pal: { k: '#1b1f2a', w: '#ffffff' },
+    rows: [
+      '...kkkkkk...',
+      '..kwwkkwwk..',
+      '.kwwkkkkwwk.',
+      'kwwwkkkkwwwk',
+      'kwwwwkkwwwwk',
+      'kkwwwwwwwwkk',
+      'kkkwwwwwwkkk',
+      'kwkkwwwwkkwk',
+      'kwwkkwwkkwwk',
+      '.kwwwkkwwwk.',
+      '..kwwwwwwk..',
+      '...kkkkkk...',
+    ],
+  },
+  store: {
+    pal: { k: '#1d2433', r: '#e5484d', w: '#ffffff', b: '#3a7be6' },
+    rows: [
+      '.kkkkkkkkkkkk.',
+      'krrwwrrwwrrwwk',
+      'krrwwrrwwrrwwk',
+      'kkkkkkkkkkkkkk',
+      '.krwkrwkrwkrk.',
+      '.kwwwwwwwwwwk.',
+      '.kwkkkwkkkkwk.',
+      '.kwkbkwkbbkwk.',
+      '.kwkbkwkbbkwk.',
+      '.kwkbkwkkkkwk.',
+      '.kwkkkwwwwwwk.',
+      '.kkkkkkkkkkkk.',
+    ],
+  },
+  gear: {
+    pal: { k: '#1d2433', s: '#d6dce8', S: '#8f99ad' },
+    rows: [
+      '.....kk.....',
+      '..kk.kk.kk..',
+      '..kskssksk..',
+      '...kssssk...',
+      'kkkssSSsskkk',
+      'kssSkkkkSssk',
+      'kssSk..kSssk',
+      'kkkssSSsskkk',
+      '...kssssk...',
+      '..kskssksk..',
+      '..kk.kk.kk..',
+      '.....kk.....',
+    ],
+  },
   scout: {
     pal: { k: '#13234a', b: '#8fc1ff', B: '#3a7be6', w: '#ffffff' },
     rows: [
@@ -114,7 +199,7 @@ const SPRITES: Record<string, Sprite> = {
 
 const cache = new Map<string, string>();
 
-function spriteUrl(name: string): string {
+export function spriteUrl(name: string): string {
   const hit = cache.get(name);
   if (hit) return hit;
   const s = SPRITES[name];
@@ -136,8 +221,23 @@ function spriteUrl(name: string): string {
 }
 
 /** 픽셀 아이콘 <img>. size는 화면 픽셀 높이 */
-export function pxIcon(name: Currency | 'scout', size = 18): string {
+export function pxIcon(name: Currency | 'scout' | 'trophy' | 'boot' | 'ball' | 'store' | 'gear', size = 18): string {
   const s = SPRITES[name];
   const w = Math.round((s.rows[0].length / s.rows.length) * size);
   return `<img class="px" src="${spriteUrl(name)}" width="${w}" height="${size}" alt="">`;
 }
+
+/** 손으로 찍은 아이콘이 있는 이모지 (나머지는 pixelEmoji가 자동 변환) */
+export const HAND_DRAWN: Record<string, string> = {
+  '🏆': 'trophy',
+  '👟': 'boot',
+  '⚽': 'ball',
+  '📋': 'boards',
+  '🏪': 'store',
+  '⚙': 'gear',
+  '💵': 'cash',
+  '📞': 'contacts',
+  '💎': 'gems',
+  '📯': 'whistles',
+  '🔭': 'scout',
+};

@@ -12,6 +12,7 @@ import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } fro
 import { STYLES, type TacticStyle } from '../../game/match';
 import { drawFullTime } from '../pitch';
 import { pxIcon } from '../icons';
+import { pixelize } from '../pixelEmoji';
 import { rewardText } from '../dom';
 
 // ───────── 화면 밖 상태 ─────────
@@ -192,7 +193,11 @@ export function tick(app: App, now: number): void {
   if (score) score.textContent = `${me} - ${opp}`;
   if (clock) clock.textContent = `${String(Math.floor(app.game.matchElapsed(now) * 90)).padStart(2, '0')}'`;
   const last = events[events.length - 1];
-  if (comm && last && comm.textContent !== last.text) comm.textContent = last.text;
+  if (comm && last && (comm as HTMLElement).dataset.text !== last.text) {
+    (comm as HTMLElement).dataset.text = last.text;
+    comm.textContent = last.text;
+    pixelize(comm);
+  }
   const goals = me + opp;
   if (goals > ui.shownGoals) {
     ui.shownGoals = goals;

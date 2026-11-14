@@ -1363,3 +1363,34 @@ img.px {
 .penalty-goal .keeper {
   top: 44px;
 }
+
+/* 이모지 → 픽셀 아이콘 */
+img.pe {
+  display: inline-block;
+  height: 1.2em;
+  width: auto;
+  vertical-align: -0.25em;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.tab .ico img.pe {
+  height: 30px;
+  vertical-align: middle;
+}
+.big-ico img.pe {
+  height: 40px;
+}
+.trophy img.pe {
+  height: 84px;
+}
+.card .flag img.pe {
+  height: 14px;
+}
+.card .trait img.pe {
+  height: 14px;
+  vertical-align: middle;
+}
+.crest img.pe {
+  height: 75%;
+  vertical-align: middle;
+}
