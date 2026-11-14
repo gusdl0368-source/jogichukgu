@@ -1,4 +1,4 @@
-import { ADS, MAX_SCOUT_LEVEL, TIERS, incomeMult } from '../../data/balance';
+import { ADS, LUCKY_SCOUT, MAX_SCOUT_LEVEL, MEMBERSHIP, TIERS, incomeMult } from '../../data/balance';
 import { PLAYER_TEAM_ID, myFixture, myRank, sortedTable } from '../../game/league';
 import type { MatchEvent } from '../../game/match';
 import type { MatchSummary } from '../../game/state';
@@ -135,7 +135,7 @@ export function render(app: App): string {
     <button class="sq-btn" data-act="league"><span class="ico">${TIERS[s.league.level].icon}</span>${rank}</button>
     <button class="sq-btn" data-act="stadium" id="stadium-btn"><span class="ico">🏟️</span><span id="stadium-cash">${fmt(stadium.cash)}</span>${stadium.capped ? '<span class="dot"></span>' : ''}</button>
     <button class="scout-btn" data-act="scout" ${s.wallet.contacts <= 0 ? 'disabled' : ''}><span class="ico">${pxIcon('scout', 26)}</span><span class="cnt">${pxIcon('contacts', 13)} ${fmt(s.wallet.contacts)}</span></button>
-    <button class="sq-btn" data-act="probs">스카우트<br><b style="font-size:15px">Lv.${s.scoutLevel}</b>${s.wallet.cash >= g.upgradeCost() && s.scoutLevel < MAX_SCOUT_LEVEL ? '<span class="dot"></span>' : ''}</button>
+    <button class="sq-btn" data-act="probs">${(s.luckyUntil ?? 0) > now || g.isMember(now) ? '<span class="buff">🍀</span>' : ''}스카우트<br><b style="font-size:15px">Lv.${s.scoutLevel}</b>${s.wallet.cash >= g.upgradeCost() && s.scoutLevel < MAX_SCOUT_LEVEL ? '<span class="dot"></span>' : ''}</button>
     <button class="sq-btn ${ui.autoRunning ? 'on' : ''}" data-act="auto"><span class="ico">🔁</span>${ui.autoRunning ? '자동 ON' : '자동'}</button>
   </div>`;
 }
@@ -269,13 +269,25 @@ function renderCompare(app: App): string {
 
 function renderProbs(app: App): string {
   const g = app.game;
-  const lv = g.state.scoutLevel;
+  const now = app.now();
+  const base = g.state.scoutLevel;
+  const lv = g.effectiveScoutLevel(now);
+  const bonus = lv - base;
   const cur = g.probabilities(lv);
-  const max = lv >= MAX_SCOUT_LEVEL;
-  const next = max ? cur : g.probabilities(lv + 1);
+  const max = base >= MAX_SCOUT_LEVEL;
+  const next = max ? cur : g.probabilities(Math.min(MAX_SCOUT_LEVEL, lv + 1));
   const cost = g.upgradeCost();
+  const member = g.isMember(now);
+  const luckyLeft = (g.state.luckyUntil ?? 0) - now;
   return `<h2>🔭 스카우트 확률</h2>
-    <div class="prob-row" style="background:#1d2433"><span style="text-align:left">등급</span><span>Lv.${lv}</span><span class="next">${max ? '최대' : `Lv.${lv + 1}`}</span></div>
+    <div class="panel" style="padding:8px 10px;text-align:center">
+      기본 <b>Lv.${base}</b>${member ? ` + 정회원 <b style="color:#8a5cf0">+${MEMBERSHIP.scoutLevelBonus}</b>` : ''}${luckyLeft > 0 ? ` + 행운 <b style="color:var(--green)">+${LUCKY_SCOUT.levelBonus}</b> (${duration(luckyLeft)})` : ''}${bonus > 0 ? ` = 적용 <b>Lv.${lv}</b>` : ''}
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn small gold" data-act="lucky-ad" ${g.luckyAdsLeft() > 0 ? '' : 'disabled'}>📺 행운 스카우트 ${LUCKY_SCOUT.minutes}분 (${g.luckyAdsLeft()}/${LUCKY_SCOUT.dailyAds})</button>
+        <button class="btn small" data-act="membership" style="background:#8a5cf0;box-shadow:inset 0 2px 0 rgba(255,255,255,.35),0 3px 0 var(--outline)">${member ? '정회원 적용 중' : `정회원 +${MEMBERSHIP.scoutLevelBonus}레벨`}</button>
+      </div>
+    </div>
+    <div class="prob-row" style="background:#1d2433"><span style="text-align:left">등급</span><span>Lv.${lv}</span><span class="next">${max ? '최대' : `Lv.${Math.min(MAX_SCOUT_LEVEL, lv + 1)}`}</span></div>
     ${TIERS.map((t, i) => `<div class="prob-row" style="background:${t.color}"><span style="text-align:left">${t.name}</span><span>${pct(cur[i])}</span><span class="next">${pct(next[i])}${next[i] > 0 && cur[i] === 0 ? ' 🆕' : ''}</span></div>`).join('')}
     <p class="muted" style="text-align:center">레벨을 올리면 높은 등급 선수가 나올 확률이 오릅니다.</p>
     ${max ? '<p style="text-align:center"><b>최고 레벨입니다!</b></p>' : `<button class="btn block ${g.state.wallet.cash >= cost ? 'green' : 'gray'}" data-act="do-upgrade">스카우트 업그레이드 💵${fmt(cost)}</button>`}`;
@@ -412,6 +424,12 @@ export const actions: Record<string, ActionHandler> = {
   },
   probs(app) {
     app.openModal({ render: () => renderProbs(app) });
+  },
+  'lucky-ad'(app) {
+    app.playAd(() => {
+      if (app.game.watchLuckyScout(app.now())) app.toast(`🍀 ${LUCKY_SCOUT.minutes}분 동안 스카우트 확률 UP!`);
+      app.renderModal(true);
+    });
   },
   'do-upgrade'(app) {
     if (app.game.upgradeScout()) {

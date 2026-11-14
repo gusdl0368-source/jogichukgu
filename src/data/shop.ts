@@ -45,7 +45,7 @@ export const MEMBERSHIP_PRODUCT: CashProduct = {
   id: 'membership',
   name: '정회원 회비 (7일)',
   price: 6600,
-  desc: '즉시 연락처 150 + 젬 100, 매일 연락처 150 + 젬 20, 자동 스카우트 2배 속도',
+  desc: '즉시 연락처 150 + 젬 100, 매일 연락처 400 + 젬 30, 스카우트 레벨 +5, 운동장 연락처 3배·회비 +30%, 오프라인 +4시간',
 };
 
 export const EXTRA_SKILL_SLOT: CashProduct = { id: 'skill_slot', name: '스킬 슬롯 +1', price: 4900, desc: '팀 스킬을 하나 더 장착합니다' };
@@ -56,15 +56,15 @@ export const SUPERSTAR_PRICE = 9900;
 export const PASS_PRODUCT: CashProduct = { id: 'pass_premium', name: '시즌 회비 패스 (프리미엄)', price: 17000 };
 
 /** 패스 단계: 리그 경기 승리 수로 진행 */
-export const PASS_STEPS = 40;
+export const PASS_STEPS = 60;
 
 export function passReward(step: number, premium: boolean, league: number): Reward {
-  // 무료는 운동장 20분치, 프리미엄은 1시간치
-  const cash = Math.round(1200 * ECONOMY.stadiumCashPerSec * incomeMult(league) * (premium ? 3 : 1));
+  // 무료는 운동장 20분치, 프리미엄은 1시간 20분치 + 재화 듬뿍
+  const cash = Math.round(1200 * ECONOMY.stadiumCashPerSec * incomeMult(league) * (premium ? 4 : 1));
   const kind = step % 3;
-  if (kind === 0) return { cash, contacts: premium ? 40 : 15 };
-  if (kind === 1) return { cash, whistles: premium ? 250 : 80 };
-  return { cash, boards: premium ? 120 : 40 };
+  if (kind === 0) return { cash, contacts: premium ? 150 : 15 };
+  if (kind === 1) return { cash, whistles: premium ? 600 : 80 };
+  return { cash, boards: premium ? 300 : 40 };
 }
 
 /** 젬으로 사는 상품 */
@@ -77,7 +77,7 @@ export interface GemItem {
 }
 
 export const GEM_ITEMS: GemItem[] = [
-  { id: 'g_contacts', name: '연락처 300', icon: '📞', gems: 50, reward: () => ({ contacts: 300 }) },
+  { id: 'g_contacts', name: '연락처 300', icon: '📞', gems: 100, reward: () => ({ contacts: 300 }) },
   { id: 'g_cash', name: '회비 상자 (운동장 3시간치)', icon: '💵', gems: 40, reward: (l) => ({ cash: Math.round(3 * 3600 * ECONOMY.stadiumCashPerSec * incomeMult(l)) }) },
   { id: 'g_boards', name: '작전판 200', icon: '📋', gems: 60, reward: () => ({ boards: 200 }) },
   { id: 'g_whistles', name: '호루라기 600', icon: '📯', gems: 60, reward: () => ({ whistles: 600 }) },

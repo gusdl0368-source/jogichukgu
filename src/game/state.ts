@@ -60,7 +60,7 @@ export interface TournamentState {
 
 export interface DailyState {
   key: string;
-  ads: { cash: number; contacts: number; gems: number; stadium: number; autoScout: number; offline: number };
+  ads: { cash: number; contacts: number; gems: number; stadium: number; autoScout: number; offline: number; lucky?: number };
   freeGems: boolean;
   campUsed: Record<CampId, number>;
   campAd: Record<CampId, number>;
@@ -141,6 +141,8 @@ export interface GameState {
   offers: { id: 'starter' | 'promotion' | 'comeback'; endsAt: number; bought: boolean }[];
   /** 첫 구매 젬 2배를 썼는지 */
   firstBuyDone: boolean;
+  /** 광고 행운 스카우트가 끝나는 시각 (v3 중간 추가, 없으면 0) */
+  luckyUntil?: number;
   /** 구단 꾸미기 */
   cosmetics: { kit: string; owned: string[]; crestChanges: number };
   /** 슈퍼스타 리그 우승 = 엔딩 */

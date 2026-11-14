@@ -1,4 +1,4 @@
-import { TIERS } from '../data/balance';
+import { MEMBERSHIP, TIERS } from '../data/balance';
 import { MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, passReward } from '../data/shop';
 import type { OfflineReport } from '../game/game';
 import { type MatchSummary, deserialize, serialize } from '../game/state';
@@ -75,8 +75,10 @@ function renderMembership(app: App): string {
     </div>
     <ul style="line-height:1.8;font-weight:700">
       <li>✅ 가입 즉시 📞150 + 💎100</li>
-      <li>✅ 매일 📞150 + 💎20 받기</li>
-      <li>✅ 자동 스카우트 <b style="color:var(--green)">2배 속도</b></li>
+      <li>✅ 매일 📞${MEMBERSHIP.dailyContacts} + 💎${MEMBERSHIP.dailyGems} 받기</li>
+      <li>✅ 정회원 스카우트망: 확률이 <b style="color:var(--green)">스카우트 레벨 +${MEMBERSHIP.scoutLevelBonus}</b>처럼</li>
+      <li>✅ 운동장 연락처 <b style="color:var(--green)">${MEMBERSHIP.stadiumContactsMult}배 속도</b>, 회비 +${MEMBERSHIP.stadiumCashBonus * 100}%</li>
+      <li>✅ 오프라인 누적 +${MEMBERSHIP.capHours}시간 · 자동 스카우트 ${MEMBERSHIP.autoScoutSpeedMult}배 속도</li>
     </ul>
     ${member ? `<p style="text-align:center">남은 기간: <b>${duration(g.state.membershipUntil - now)}</b></p>
       <button class="btn block ${g.state.daily.membershipClaimed ? 'gray' : 'green'}" data-act="member-daily" ${g.state.daily.membershipClaimed ? 'disabled' : ''}>${g.state.daily.membershipClaimed ? '오늘 보상 받음' : '오늘 보상 받기'}</button><p></p>` : ''}

@@ -170,4 +170,4 @@ export const CREST_CHANGE_GEMS = 20;
 
 // ───────── 오프라인 보상 2배 ─────────
 
-export const OFFLINE_DOUBLE_ADS = 3;
+export const OFFLINE_DOUBLE_ADS = 1;

@@ -31,7 +31,7 @@ export const CAMPS: CampDef[] = [
     desc: '동네 형들과 5대5 한 판. 보상: 연락처 + 회비',
     interactive: false,
     // 회비는 그 난이도에 맞는 리그의 운동장 10분치
-    reward: (d) => ({ contacts: Math.round(30 * Math.pow(1.1, d - 1)), cash: Math.round(600 * ECONOMY.stadiumCashPerSec * incomeMult((d - 1) / 3)) }),
+    reward: (d) => ({ contacts: Math.round(20 * Math.pow(1.07, d - 1)), cash: Math.round(600 * ECONOMY.stadiumCashPerSec * incomeMult((d - 1) / 3)) }),
     requiredPower: (d) => 430 + 30 * (d - 1),
   },
   {

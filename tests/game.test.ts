@@ -797,9 +797,9 @@ describe('BM: 수익화 장치', () => {
     expect(g.activeOffers(T0 + 50 * HOUR).some((o) => o.id === 'comeback')).toBe(true);
   });
 
-  it('오프라인 보상 2배는 하루 3번', () => {
+  it('오프라인 보상 2배는 하루 1번', () => {
     const g = newGame();
-    for (let i = 0; i < 3; i++) expect(g.doubleOffline({ cash: 10, contacts: 1 })).toBe(true);
+    expect(g.doubleOffline({ cash: 10, contacts: 1 })).toBe(true);
     expect(g.doubleOffline({ cash: 10, contacts: 1 })).toBe(false);
   });
 
@@ -829,5 +829,34 @@ describe('BM: 수익화 장치', () => {
     expect(m.cosmetics.kit).toBe('blue');
     expect(m.collection.seen.length).toBeGreaterThan(0);
     expect(new Game(m).spinWheel('free')).not.toBeNull();
+  });
+});
+
+describe('BM: 결제 단계별 체감', () => {
+  it('정회원은 스카우트 확률 레벨 +5, 운동장 연락처가 빨라진다', () => {
+    const g = newGame();
+    const base = g.effectiveScoutLevel(T0);
+    const rate = g.stadiumRates(T0).contactEverySec;
+    g.purchase('membership', T0);
+    expect(g.effectiveScoutLevel(T0)).toBe(base + 5);
+    expect(g.stadiumRates(T0).contactEverySec).toBeLessThan(rate / 2);
+    expect(g.stadiumRates(T0 + 8 * 24 * HOUR).contactEverySec).toBe(rate);
+  });
+
+  it('행운 스카우트 광고: 30분 동안 +2, 하루 3번', () => {
+    const g = newGame();
+    const base = g.effectiveScoutLevel(T0);
+    for (let i = 0; i < 3; i++) expect(g.watchLuckyScout(T0)).toBe(true);
+    expect(g.watchLuckyScout(T0)).toBe(false);
+    expect(g.effectiveScoutLevel(T0)).toBe(base + 2);
+    expect(g.effectiveScoutLevel(T0 + 2 * HOUR)).toBe(base);
+  });
+
+  it('같은 리그에서 실패할수록 AI가 조금씩 약해진다', async () => {
+    const { aiSide } = await import('../src/game/league');
+    const g = newGame();
+    const team = g.state.league.teams.find((t) => t.squad)!;
+    expect(aiSide(team, 6, 0).power.total).toBeGreaterThan(aiSide(team, 6, 10).power.total);
+    expect(aiSide(team, 6, 1000).power.total).toBe(aiSide(team, 0, 0).power.total);
   });
 });

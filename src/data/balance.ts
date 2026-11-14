@@ -67,7 +67,7 @@ export function incomeMult(league: number): number {
 export const ECONOMY = {
   /** 운동장 수익: 초당 회비, 연락처 1개당 초 */
   stadiumCashPerSec: 0.5,
-  stadiumContactEverySec: 115,
+  stadiumContactEverySec: 300,
   /** 오프라인 누적 상한(시간) */
   stadiumCapHours: 8,
   startCash: 200,
@@ -83,7 +83,7 @@ export const ADS = {
   dailyLimit: 3,
   /** 운동장 30분치 (리그 배율은 따로 곱한다) */
   cash: 900,
-  contacts: 50,
+  contacts: 100,
   gems: 10,
   /** 가짜 광고 재생 시간(ms) */
   durationMs: 1500,
@@ -134,10 +134,21 @@ export const SKILLS = {
 
 export const MEMBERSHIP = {
   days: 7,
-  dailyContacts: 150,
-  dailyGems: 20,
+  dailyContacts: 400,
+  dailyGems: 30,
   autoScoutSpeedMult: 2,
+  /** 정회원 동안 운동장 연락처가 쌓이는 속도 배율 */
+  stadiumContactsMult: 3,
+  /** 정회원 동안 운동장 회비 수입 보너스 */
+  stadiumCashBonus: 0.3,
+  /** 정회원 동안 오프라인 누적 상한 추가(시간) */
+  capHours: 4,
+  /** 정회원 전용 스카우트망: 확률을 스카우트 레벨 +5처럼 */
+  scoutLevelBonus: 5,
 };
+
+/** 광고 '행운 스카우트': 30분 동안 확률을 스카우트 레벨 +2처럼, 하루 3번 */
+export const LUCKY_SCOUT = { levelBonus: 2, minutes: 30, dailyAds: 3 };
 
 export const AUTO_SCOUT = {
   /** 자동 스카우트 간격(ms) */

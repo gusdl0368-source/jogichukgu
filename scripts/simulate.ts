@@ -20,10 +20,13 @@ const MIN = 60 * 1000;
 
 const g = new Game(newGameState(START, SEED));
 const income: Record<string, number> = {};
+const contactsIn: Record<string, number> = {};
 function track(src: string, fn: () => void): void {
   const before = g.state.wallet.cash;
+  const beforeC = g.state.wallet.contacts;
   fn();
   income[src] = (income[src] ?? 0) + g.state.wallet.cash - before;
+  contactsIn[src] = (contactsIn[src] ?? 0) + g.state.wallet.contacts - beforeC;
 }
 g.state.seenTutorial = true;
 const ADS = !process.env.SIM_NO_ADS;
@@ -46,6 +49,7 @@ function scoutAll(): void {
 }
 
 function spend(now: number): void {
+  track('보상(가이드·미션·패스·젬)', () => rewards());
   while (g.upgradeScout()) {
     // 회비가 되는 만큼 스카우트 레벨업
   }
@@ -77,6 +81,9 @@ function spend(now: number): void {
   while (!process.env.SIM_NO_DEX && g.claimCollection()) {
     // 도감 보상
   }
+}
+
+function rewards(): void {
   // 가이드와 일일 미션 보상
   while (g.claimGuide()) {
     // 연속으로 깬 가이드 모두 받기
@@ -147,6 +154,8 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
       // 오프라인 보상 2배 광고
       if (ADS) g.doubleOffline(got);
     });
+    // 접속할 때마다 행운 스카우트 광고 (하루 3번)
+    if (ADS) g.watchLuckyScout(t);
     if (g.state.daily.key !== lastDay) {
       lastDay = g.state.daily.key;
       track('일일(광고/캠프/대회)', () => daily(t));
@@ -175,6 +184,7 @@ for (let day = 0; day < DAYS && champDay < 0; day++) {
 console.log(`시뮬레이션: 하루 ${SESSIONS}번 × ${SESSION_MIN}분 접속 · 광고 ${ADS ? '봄' : '안 봄'} · 패스 ${PASS ? '구매' : 'X'} · 정회원 ${MEMBER ? '매주' : 'X'}`);
 console.log(log.join('\n'));
 console.log(champDay > 0 ? `\n🏆 ${champDay}일째 슈퍼스타 리그 우승 (엔딩)` : `\n${DAYS}일 안에 엔딩 미도달`);
+console.log('연락처 출처', Object.fromEntries(Object.entries(contactsIn).filter(([k]) => k !== '판매').map(([k, v]) => [k, Math.round(v)])));
 console.log('회비 출처', Object.fromEntries(Object.entries(income).map(([k, v]) => [k, Math.round(v)])));
 console.log(`경기 ${g.state.stats.matches} · 스카우트 ${g.state.scoutCount}명`);
 console.log(`총 플레이 ${Math.round(playedMin / 60)}시간 · 결제 ₩${paid.toLocaleString('ko-KR')}`);

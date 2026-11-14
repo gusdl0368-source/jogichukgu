@@ -1,4 +1,4 @@
-import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, incomeMult, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
+import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, LUCKY_SCOUT, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, incomeMult, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
 import { RESEARCH, type ResearchEffect, type TreeId, researchCost, rushGemCost } from '../data/research';
 import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, SPONSORS, dailyDeals, passReward } from '../data/shop';
 import { MAX_SKILL_LEVEL, SKILLS as SKILL_DEFS, SUMMON_RARITY_BY_LEVEL, shardsToLevel } from '../data/skills';
@@ -119,8 +119,28 @@ export class Game {
 
   // ───────────────────────── 스카우트 ─────────────────────────
 
-  probabilities(level = this.state.scoutLevel): number[] {
+  probabilities(level = this.effectiveScoutLevel()): number[] {
     return scoutProbabilities(level);
+  }
+
+  /** 정회원·행운 스카우트 보너스를 더한 확률용 레벨 */
+  effectiveScoutLevel(now = this.state.lastActive): number {
+    let lv = this.state.scoutLevel;
+    if (this.isMember(now)) lv += MEMBERSHIP.scoutLevelBonus;
+    if ((this.state.luckyUntil ?? 0) > now) lv += LUCKY_SCOUT.levelBonus;
+    return Math.min(MAX_SCOUT_LEVEL, lv);
+  }
+
+  luckyAdsLeft(): number {
+    return Math.max(0, LUCKY_SCOUT.dailyAds - (this.state.daily.ads.lucky ?? 0));
+  }
+
+  /** 광고 보고 30분 동안 스카우트 확률 상승 (이미 켜져 있으면 연장) */
+  watchLuckyScout(now: number): boolean {
+    if (this.luckyAdsLeft() <= 0) return false;
+    this.state.daily.ads.lucky = (this.state.daily.ads.lucky ?? 0) + 1;
+    this.state.luckyUntil = Math.max(now, this.state.luckyUntil ?? 0) + LUCKY_SCOUT.minutes * 60 * 1000;
+    return true;
   }
 
   upgradeCost(): number {
@@ -207,17 +227,18 @@ export class Game {
 
   // ───────────────────────── 운동장 수익 ─────────────────────────
 
-  stadiumRates(): { cashPerSec: number; contactEverySec: number; capHours: number } {
+  stadiumRates(now = this.state.lastActive): { cashPerSec: number; contactEverySec: number; capHours: number } {
     const lv = this.state.league.level;
+    const member = this.isMember(now);
     return {
-      cashPerSec: ECONOMY.stadiumCashPerSec * incomeMult(lv) * (1 + this.researchEffect('stadiumCash') + this.sponsorEffect('stadiumCash') + this.state.stadiumLevel * STADIUM_PER_LEVEL.cash),
-      contactEverySec: ECONOMY.stadiumContactEverySec / (1 + this.researchEffect('stadiumContacts')),
-      capHours: ECONOMY.stadiumCapHours + this.researchEffect('offlineCap') + this.state.stadiumLevel * STADIUM_PER_LEVEL.capHours,
+      cashPerSec: ECONOMY.stadiumCashPerSec * incomeMult(lv) * (1 + this.researchEffect('stadiumCash') + this.sponsorEffect('stadiumCash') + this.state.stadiumLevel * STADIUM_PER_LEVEL.cash + (member ? MEMBERSHIP.stadiumCashBonus : 0)),
+      contactEverySec: ECONOMY.stadiumContactEverySec / (1 + this.researchEffect('stadiumContacts')) / (member ? MEMBERSHIP.stadiumContactsMult : 1),
+      capHours: ECONOMY.stadiumCapHours + this.researchEffect('offlineCap') + this.state.stadiumLevel * STADIUM_PER_LEVEL.capHours + (member ? MEMBERSHIP.capHours : 0),
     };
   }
 
   stadiumPending(now: number): { cash: number; contacts: number; seconds: number; capped: boolean } {
-    const r = this.stadiumRates();
+    const r = this.stadiumRates(now);
     const raw = Math.max(0, (now - this.state.stadium.lastCollect) / 1000);
     const seconds = Math.min(raw, r.capHours * 3600);
     return {
@@ -236,7 +257,7 @@ export class Game {
       this.progressMission('collect');
     }
     // 다음 연락처까지 지난 시간은 버리지 않고 이월한다
-    const r = this.stadiumRates();
+    const r = this.stadiumRates(now);
     this.state.stadium.contactCarrySec = p.capped ? 0 : (p.seconds + this.state.stadium.contactCarrySec) % r.contactEverySec;
     this.state.stadium.lastCollect = now;
     return { cash: p.cash, contacts: p.contacts };
@@ -245,7 +266,7 @@ export class Game {
   // ───────────────────────── 광고 (가짜) ─────────────────────────
 
   adsLeft(kind: keyof GameState['daily']['ads']): number {
-    return Math.max(0, ADS.dailyLimit - this.state.daily.ads[kind]);
+    return Math.max(0, ADS.dailyLimit - (this.state.daily.ads[kind] ?? 0));
   }
 
   watchAd(kind: AdKind | 'stadium'): Reward | null {
@@ -278,7 +299,7 @@ export class Game {
     const fx = myFixture(this.state.league);
     if (!fx) return false;
     const me = this.mySide();
-    const opp = aiSide(fx.opponent, this.state.league.level);
+    const opp = aiSide(fx.opponent, this.state.league.level, this.state.league.attempts);
     const seed = this.rng().seed();
     const opts = { tier: this.state.league.level };
     const result = fx.home ? simulateMatch(me, opp, seed, opts) : simulateMatch(opp, me, seed, opts);
@@ -360,6 +381,7 @@ export class Game {
     const old = this.state.league;
     const level = Math.min(TIERS.length - 1, old.level + (promote ? 1 : 0));
     this.state.league = createLeague(this.rng().seed(), level, old.season + 1, this.state.teamName, this.state.crest);
+    this.state.league.attempts = promote ? 0 : (old.attempts ?? 0) + 1;
   }
 
   /** 게임을 안 켠 동안 지나간 경기를 최대 maxMatches까지 즉시 처리 */
@@ -1008,5 +1030,5 @@ export class Game {
 function simulateReasonsAsAway(m: NonNullable<GameState['match']>, game: Game): string[] {
   const [hs, as] = m.result.stats;
   const opp = game.state.league.teams.find((t) => t.id === m.opponentId)!;
-  return explain([as, hs], game.mySide(), aiSide(opp, game.state.league.level));
+  return explain([as, hs], game.mySide(), aiSide(opp, game.state.league.level, game.state.league.attempts));
 }

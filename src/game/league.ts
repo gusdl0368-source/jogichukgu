@@ -8,7 +8,9 @@ import type { Player } from './types';
 export const PLAYER_TEAM_ID = 'me';
 
 /** AI 팀이 리그 단계마다 받는 팀 파워 보너스 */
-export const AI_POWER_PER_LEVEL = 0.018;
+export const AI_POWER_PER_LEVEL = 0.055;
+/** 같은 리그에서 승격에 실패할 때마다 AI 보너스가 줄어든다 (막혀서 그만두지 않게) */
+export const AI_PITY_PER_SEASON = 0.0025;
 
 export interface LeagueTeam {
   id: string;
@@ -38,6 +40,8 @@ export interface LeagueState {
   /** fixtures[round] = [홈 id, 원정 id][] */
   fixtures: [string, string][][];
   table: Record<string, TableRow>;
+  /** 이 리그에서 승격 못 하고 넘긴 시즌 수 */
+  attempts?: number;
 }
 
 /** 원형 방식 라운드 로빈: n팀이면 n-1라운드, 라운드마다 n/2경기 */
@@ -140,10 +144,11 @@ export function leagueMods(level: number): MatchMods {
   return { ...NO_MODS, passAcc: v, powerShot: v, counter: v, gkSave: v, stamina: v / 2, longShot: v, pressing: v, finishing: v, setPiece: v * 2 };
 }
 
-export function aiSide(team: LeagueTeam, level: number): TeamSide {
+export function aiSide(team: LeagueTeam, level: number, attempts = 0): TeamSide {
   const squad = team.squad!;
-  // 높은 리그 팀은 훈련·연구도 되어 있다: 리그 단계마다 팀 파워 +1.8%
-  return { name: team.name, squad, power: teamPower(squad, level * AI_POWER_PER_LEVEL), mods: leagueMods(level) };
+  // 높은 리그 팀은 훈련·연구도 되어 있다: 리그 단계마다 팀 파워 +3.2% (실패한 시즌만큼 줄어듦)
+  const bonus = Math.max(0, level * AI_POWER_PER_LEVEL - attempts * AI_PITY_PER_SEASON);
+  return { name: team.name, squad, power: teamPower(squad, bonus), mods: leagueMods(level) };
 }
 
 /** 이번 라운드에서 내 경기 상대와 홈/원정 여부 */
@@ -163,7 +168,7 @@ export function playOtherMatches(league: LeagueState, seed: number): void {
     if (h === PLAYER_TEAM_ID || a === PLAYER_TEAM_ID) continue;
     const ht = league.teams.find((t) => t.id === h)!;
     const at = league.teams.find((t) => t.id === a)!;
-    recordResult(league, h, a, quickResult(aiSide(ht, league.level), aiSide(at, league.level), rng.seed(), { tier: league.level }));
+    recordResult(league, h, a, quickResult(aiSide(ht, league.level, league.attempts), aiSide(at, league.level, league.attempts), rng.seed(), { tier: league.level }));
   }
 }
 
