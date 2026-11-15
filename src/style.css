@@ -2059,3 +2059,31 @@ img.pe {
 .ol-tip { margin: 6px 0 0; color: var(--ink); line-height: 1.45; }
 .ol-tip b { font-weight: 700; color: #1f9a44; }
 .rec-btn { margin: -2px 0 10px; background: #ffd35a; color: var(--ink); text-shadow: none; font-size: 14px; }
+
+/* 경기 기록 */
+.result-banner[data-act="report"] { cursor: pointer; }
+.ft-stats { font-size: 12px; color: #cfd6e4; }
+.ft-stats b { color: #fff; font-weight: 700; }
+.ft-more { margin-left: 4px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 224, 138, 0.18); color: #ffe08a; white-space: nowrap; }
+.rp-last { margin: 0 0 10px; }
+.rp-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 14px; }
+.rp-head span:first-child { text-align: right; }
+.rp-score { font-family: var(--font-display); font-size: 30px; }
+.rp-score.win { color: #1f9a44; }
+.rp-score.loss { color: #d8402a; }
+.rp-score.draw { color: #b88a00; }
+.rp-mvp { background: #fff6d6; border: 2px solid var(--outline); border-radius: 12px; padding: 8px 10px; margin: 0 0 10px; text-align: center; font-size: 13px; }
+.rp-mvp b { font-family: var(--font-ui); font-weight: 400; font-size: 16px; }
+.rp-mvp span { color: var(--ink-soft); }
+.rp-goals { display: grid; gap: 4px; margin: 0 0 10px; font-size: 13px; }
+.rp-goals > div { padding: 4px 10px; border-radius: 8px; }
+.rp-goals .mine { background: #e3efff; justify-self: start; }
+.rp-goals .theirs { background: #ffe6e3; justify-self: end; }
+.rp-goals span { font-family: var(--font-ui); color: var(--ink-soft); }
+.rp-row { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 6px; margin: 6px 0; font-size: 13px; }
+.rp-row > b { text-align: center; font-weight: 700; color: var(--ink-soft); }
+.rp-row > b.lead { color: var(--ink); }
+.rp-mid span { display: block; text-align: center; font-size: 11px; color: var(--ink-soft); }
+.rp-bar { height: 8px; background: #f0b4ac; border-radius: 999px; overflow: hidden; border: 1.5px solid var(--outline); }
+.rp-bar i { display: block; height: 100%; background: #2f6fed; }
+.rp-reasons { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }

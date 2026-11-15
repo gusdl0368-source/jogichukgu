@@ -150,6 +150,30 @@ describe('리그', () => {
     expect(g.state.stats.matches).toBe(18);
   });
 
+  it('경기가 끝나면 우리 팀 기준 기록과 최우수 선수가 남는다', () => {
+    const g = newGame();
+    let withMvp = 0;
+    for (let i = 0; i < 18; i++) {
+      g.startMatch(T0 + i * HOUR);
+      const m = g.state.match!;
+      const s = g.finishMatch()!;
+      const r = s.report!;
+      expect(r.stats[0].poss + r.stats[1].poss).toBe(100);
+      // 우리 팀 기준으로 뒤집혀 있어야 한다
+      const me = m.home ? 0 : 1;
+      expect(r.stats[0].shots).toBe(m.result.stats[me].shots);
+      expect(r.goals.filter((x) => x.mine)).toHaveLength(s.myScore[0]);
+      expect(r.goals.filter((x) => !x.mine)).toHaveLength(s.myScore[1]);
+      expect(r.goals.map((x) => x.minute)).toEqual([...r.goals.map((x) => x.minute)].sort((a, b) => a - b));
+      if (r.mvp) {
+        withMvp++;
+        expect(g.state.squad.map((p) => p.name)).toContain(r.mvp.name);
+      }
+      if (s.outcome === 'win') expect(r.mvp).toBeDefined();
+    }
+    expect(withMvp).toBeGreaterThan(0);
+  });
+
   it('1위면 승격하고 보상을 받는다', () => {
     const g = newGame();
     // 내 팀을 한 단계 위 선수로 채워서 1위를 만든다

@@ -57,8 +57,28 @@ export interface MatchSummary {
   scorers?: string[];
   /** 라이벌전이었으면 결과와 상대 감독 한마디 */
   rival?: { manager: string; line: string; bonusCash: number; bonusGems: number };
+  /** 경기 기록: [나, 상대] 순서 */
+  report?: MatchReport;
   seasonEnd?: { rank: number; promoted: boolean; level: number; reward?: { cash: number; gems: number }; topScorer?: { name: string; goals: number }; rival?: { name: string; won: number; drawn: number; lost: number } };
   champion?: boolean;
+}
+
+export interface ReportSide {
+  shots: number;
+  onTarget: number;
+  saves: number;
+  /** 점유율 % */
+  poss: number;
+  fouls: number;
+  yellows: number;
+  reds: number;
+}
+
+export interface MatchReport {
+  stats: [ReportSide, ReportSide];
+  goals: { minute: number; mine: boolean; name: string }[];
+  /** 이 경기 최우수 선수 (우리 팀) */
+  mvp?: { name: string; why: string };
 }
 
 export interface TournamentOpponent {

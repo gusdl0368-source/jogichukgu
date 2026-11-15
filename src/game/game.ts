@@ -12,10 +12,10 @@ import { randomCrest, randomUserTeamName } from '../data/teams';
 import { traitById, traitsFor } from '../data/traits';
 import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
 import { AI_PITY_PER_SEASON, AI_POWER_PER_LEVEL, type LeagueTeam, PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
-import { type MatchMods, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
+import { type MatchMods, type MatchResult, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
 import { compareSlot, computeOverall, generatePlayer, generateSquad, teamPower } from './players';
 import { Rng } from './rng';
-import { type GameState, type MatchSummary, type TournamentOpponent, dayKey, newDaily, nextReset } from './state';
+import { type GameState, type MatchReport, type MatchSummary, type ReportSide, type TournamentOpponent, dayKey, newDaily, nextReset } from './state';
 import { type Currency, type Player, type Reward, type TeamPower } from './types';
 
 /** 이만큼 골을 넣고 떠난 선수는 기록실 레전드로 남는다 */
@@ -463,7 +463,9 @@ export class Game {
     // 원정 경기면 이유도 원정 입장에서 다시 써야 하므로, 홈 기준 이유는 홈일 때만 그대로 쓴다
     const reasons = m.home ? m.result.reasons : simulateReasonsAsAway(m, this);
 
-    const summary: MatchSummary = { opponentName: opp.name, score: m.result.score, myScore, outcome, reasons, cash, scorers, rival };
+    const report = buildReport(m.result, meTeam, this.state.squad, opp.squad ?? []);
+
+    const summary: MatchSummary = { opponentName: opp.name, score: m.result.score, myScore, outcome, reasons, cash, scorers, rival, report };
     this.state.match = null;
     if (seasonOver(league)) summary.seasonEnd = this.endSeason();
     if (this.state.champion) summary.champion = true;
@@ -1192,4 +1194,39 @@ function simulateReasonsAsAway(m: NonNullable<GameState['match']>, game: Game): 
   const [hs, as] = m.result.stats;
   const opp = game.state.league.teams.find((t) => t.id === m.opponentId)!;
   return explain([as, hs], game.mySide(), aiSide(opp, game.state.league.level, game.state.league.attempts));
+}
+
+/** 경기 결과를 우리 팀 기준 기록으로 정리하고 최우수 선수를 고른다 */
+export function buildReport(result: MatchResult, meTeam: 0 | 1, mine: Player[], theirs: Player[]): MatchReport {
+  const total = result.stats[0].possessions + result.stats[1].possessions || 1;
+  const side = (t: 0 | 1): ReportSide => {
+    const st = result.stats[t];
+    return { shots: st.shots, onTarget: st.onTarget, saves: st.saves, poss: Math.round((st.possessions / total) * 100), fouls: st.fouls, yellows: st.yellows, reds: st.reds };
+  };
+  const oppTeam: 0 | 1 = meTeam === 0 ? 1 : 0;
+  const stats: [ReportSide, ReportSide] = [side(meTeam), side(oppTeam)];
+  // 점유율 합이 반올림 때문에 100이 안 될 수 있어 상대 쪽을 맞춘다
+  stats[1].poss = 100 - stats[0].poss;
+  const goals: MatchReport['goals'] = [];
+  for (const e of result.events) {
+    if (e.type !== 'goal') continue;
+    const isMine = e.team === meTeam;
+    const p = e.slot !== undefined ? (isMine ? mine : theirs)[e.slot] : undefined;
+    goals.push({ minute: e.minute, mine: isMine, name: p?.name ?? '' });
+  }
+
+  const myGoals = goals.filter((g) => g.mine);
+  const oppCount = goals.length - myGoals.length;
+  const count = new Map<string, number>();
+  for (const g of myGoals) if (g.name) count.set(g.name, (count.get(g.name) ?? 0) + 1);
+  const [topName, topGoals] = [...count].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+  let mvp: MatchReport['mvp'];
+  const keeper = mine[0]?.name;
+  if (topGoals >= 3) mvp = { name: topName, why: `해트트릭 ${topGoals}골` };
+  else if (topGoals === 2) mvp = { name: topName, why: '멀티골' };
+  else if (myGoals.length > oppCount && myGoals[oppCount]?.name) mvp = { name: myGoals[oppCount].name, why: '결승골' };
+  else if (keeper && oppCount === 0 && stats[0].saves >= 2) mvp = { name: keeper, why: `무실점 선방 ${stats[0].saves}회` };
+  else if (keeper && stats[0].saves >= 4) mvp = { name: keeper, why: `선방 ${stats[0].saves}회` };
+  else if (topGoals === 1) mvp = { name: topName, why: '득점' };
+  return { stats, goals, mvp };
 }

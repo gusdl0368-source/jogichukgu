@@ -1,6 +1,16 @@
-export const GAME_VERSION = '베타 0.18.0';
+export const GAME_VERSION = '베타 0.19.0';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.19.0',
+    date: '2026-11',
+    items: [
+      '경기 기록: 경기가 끝나면 점유율, 슈팅, 유효 슈팅, 선방, 반칙을 상대와 비교해 보여 줌',
+      '골 타임라인과 경기 최우수 선수(해트트릭, 멀티골, 결승골, 무실점 선방)',
+      '종료 배너에 슈팅·점유율 한 줄 요약, 배너를 누르면 상세 기록',
+      '순위표에서 지난 경기 기록을 다시 볼 수 있음',
+    ],
+  },
   {
     version: '베타 0.18.0',
     date: '2026-11',

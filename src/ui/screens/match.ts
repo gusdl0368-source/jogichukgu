@@ -169,15 +169,46 @@ function renderBanner(now: number): string {
   const s = b.summary;
   const label = s.outcome === 'win' ? '승리!' : s.outcome === 'draw' ? '무승부' : '패배';
   const color = s.outcome === 'win' ? '#7dff9b' : s.outcome === 'draw' ? '#ffe08a' : '#ff9b9b';
-  return `<div class="result-banner" id="banner">
+  const st = s.report?.stats;
+  return `<div class="result-banner" id="banner" ${s.report ? 'data-act="report"' : ''}>
     <canvas id="ft-scene" width="400" height="120"></canvas>
     <div class="ft-title">FULL-TIME</div>
     <div class="big" style="color:${color}">${s.myScore[0]} - ${s.myScore[1]} ${label} <span class="ft-cash">💵 +${fmt(s.cash)}</span></div>
     <div class="muted" style="color:#cfd6e4">vs ${esc(s.opponentName)}${s.rival?.bonusCash ? ` · <span class="rival-bonus">🔥 보너스 💵+${fmt(s.rival.bonusCash)} 💎+${s.rival.bonusGems}</span>` : ''}</div>
     ${s.scorers?.length ? `<div class="ft-scorers">⚽ ${scorerLine(s.scorers)}</div>` : ''}
     ${s.rival ? `<div class="rival-quote">${esc(s.rival.manager)}: “${esc(s.rival.line)}”</div>` : ''}
-    <ul>${s.reasons.slice(0, s.rival ? 0 : s.scorers?.length ? 2 : 3).map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
+    ${st && !s.rival ? `<div class="ft-stats">슈팅 <b>${st[0].shots}</b>:<b>${st[1].shots}</b> · 점유율 <b>${st[0].poss}%</b>${s.report?.mvp ? ` · ⭐ ${esc(lastName(s.report.mvp.name))}` : ''} <span class="ft-more">📋 기록 ›</span></div>` : ''}
+    <ul>${s.reasons.slice(0, s.rival ? 0 : st ? (s.scorers?.length ? 0 : 1) : s.scorers?.length ? 2 : 3).map((r) => `<li>• ${esc(r)}</li>`).join('')}</ul>
   </div>`;
+}
+
+function lastName(full: string): string {
+  return full.split(' ').slice(-1)[0];
+}
+
+/** 지난 경기 상세 기록: 스탯 비교 막대, 골 타임라인, 최우수 선수 */
+export function renderReport(sum: MatchSummary): string {
+  const r = sum.report!;
+  const [a, b] = r.stats;
+  const label = sum.outcome === 'win' ? '승리' : sum.outcome === 'draw' ? '무승부' : '패배';
+  const row = (name: string, x: number, y: number, suffix = '') => {
+    const t = x + y || 1;
+    return `<div class="rp-row"><b class="${x > y ? 'lead' : ''}">${x}${suffix}</b><div class="rp-mid"><span>${name}</span><div class="rp-bar"><i style="width:${(x / t) * 100}%"></i></div></div><b class="${y > x ? 'lead' : ''}">${y}${suffix}</b></div>`;
+  };
+  return `<h2>📋 경기 기록</h2>
+    <div class="rp-head"><span>우리 팀</span><span class="rp-score ${sum.outcome}">${sum.myScore[0]} - ${sum.myScore[1]}</span><span>${esc(sum.opponentName)}</span></div>
+    <p class="muted" style="text-align:center;margin:0 0 8px">${label}${sum.rival ? ' · 🔥 라이벌전' : ''}</p>
+    ${r.mvp ? `<div class="rp-mvp">⭐ 경기 최우수 선수 <b>${esc(r.mvp.name)}</b> <span>${esc(r.mvp.why)}</span></div>` : ''}
+    ${r.goals.length ? `<div class="rp-goals">${r.goals.map((g) => `<div class="${g.mine ? 'mine' : 'theirs'}"><span>${g.minute}'</span> ⚽ ${esc(g.name ? lastName(g.name) : '')}</div>`).join('')}</div>` : '<p class="muted" style="text-align:center">골 없이 끝난 경기</p>'}
+    <div class="panel rp-stats">
+      ${row('점유율', a.poss, b.poss, '%')}
+      ${row('슈팅', a.shots, b.shots)}
+      ${row('유효 슈팅', a.onTarget, b.onTarget)}
+      ${row('선방', a.saves, b.saves)}
+      ${row('반칙', a.fouls, b.fouls)}
+      ${a.yellows + b.yellows + a.reds + b.reds ? row('카드', a.yellows + a.reds, b.yellows + b.reds) : ''}
+    </div>
+    ${sum.reasons.length ? `<div class="panel"><h3>경기 분석</h3><ul class="rp-reasons">${sum.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}`;
 }
 
 /** ['김', '이', '김'] → '김 2 · 이' */
@@ -371,6 +402,7 @@ function renderLeague(app: App): string {
   return `<h2>${tierBadge(lv)} 순위표</h2>
     <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/${s.league.fixtures.length}경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '세계 정상!'}</b></p>
     ${renderOutlook(app)}
+    ${s.lastSummary?.report ? `<button class="btn small gray block rp-last" data-act="report">📋 지난 경기 기록 · ${s.lastSummary.myScore[0]}-${s.lastSummary.myScore[1]} ${esc(s.lastSummary.opponentName)}</button>` : ''}
     <p class="muted" style="text-align:center;margin:-2px 0 8px;font-size:12px">🔥 표시는 이번 시즌 라이벌 · 이기면 회비 2배와 💎+5</p>
     <table class="table">
       <tr><th>#</th><th class="l">팀</th><th>경기</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr>
@@ -539,6 +571,10 @@ export const actions: Record<string, ActionHandler> = {
   },
   league(app) {
     app.openModal({ render: () => renderLeague(app) });
+  },
+  report(app) {
+    const sum = ui.banner?.summary ?? app.state.lastSummary;
+    if (sum?.report) app.openModal({ render: () => renderReport(sum) });
   },
   player(app, arg) {
     app.openModal({ id: 'player', render: () => renderPlayer(app, Number(arg)) });

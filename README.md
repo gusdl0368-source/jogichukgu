@@ -1,6 +1,6 @@
 # 새벽 조기축구
 
-새벽 동네 운동장에서 시작해 **세계 정상(슈퍼스타 리그 우승)**까지 가는 방치형 축구 구단 게임입니다. 현재 **베타 0.11.0**.
+새벽 동네 운동장에서 시작해 **세계 정상(슈퍼스타 리그 우승)**까지 가는 방치형 축구 구단 게임입니다. 현재 **베타 0.19.0**.
 레퍼런스 게임(Pocket Scout FC)의 시스템 구조만 참고했고, 이름·그림·문구는 전부 새로 만들었습니다.
 분석 문서는 [`docs/pocket-scout-fc-analysis.md`](docs/pocket-scout-fc-analysis.md), 제작 프롬프트는 [`docs/rebuild-prompt.md`](docs/rebuild-prompt.md)에 있습니다.
 
