@@ -47,7 +47,7 @@ function renderStyle(app: App): string {
       <div class="row-between"><span>🛡️ 수비</span><b>${Math.round(p.def * STYLES[cur].def)}</b></div>
     </div>
     <div class="panel"><h3>주전 특성 (${traits.length}명)</h3>
-      ${traits.length ? traits.map((t) => `<div class="row-between"><span>${t.icon} ${esc(t.name)}</span><span class="muted">${esc(t.desc)}</span></div>`).join('') : '<p class="muted" style="margin:0">특성 있는 선수가 없어요. 높은 등급일수록 특성이 자주 붙어요.</p>'}
+      ${traits.length ? groupTraits(traits).map(([t, n]) => `<div class="row-between"><span>${t.icon} ${esc(t.name)}${n > 1 ? ` <b class="trait-n">×${n}</b>` : ''}</span><span class="muted">${esc(t.desc)}</span></div>`).join('') : '<p class="muted" style="margin:0">특성 있는 선수가 없어요. 높은 등급일수록 특성이 자주 붙어요.</p>'}
     </div>
     <div class="panel"><h3>경기 확률 보정 합계</h3>
       ${[
@@ -255,3 +255,14 @@ export const actions: Record<string, ActionHandler> = {
     });
   },
 };
+
+/** 같은 특성을 가진 주전이 여럿이면 한 줄로 묶는다 */
+function groupTraits<T extends { name: string }>(list: T[]): [T, number][] {
+  const m = new Map<string, [T, number]>();
+  for (const t of list) {
+    const e = m.get(t.name);
+    if (e) e[1]++;
+    else m.set(t.name, [t, 1]);
+  }
+  return [...m.values()];
+}

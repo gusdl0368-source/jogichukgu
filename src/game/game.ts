@@ -340,10 +340,15 @@ export class Game {
     const league = this.state.league;
     if (!league.rivalId) {
       const mine = this.mySide().power.total;
+      // 시즌 첫 경기부터 라이벌전이면 소개도 없이 지나가므로, 바로 다음 두 경기 상대는 뺀다
+      const soon = new Set<string>();
+      for (const round of league.fixtures.slice(league.round, league.round + 2)) {
+        for (const [h, a] of round) if (h === PLAYER_TEAM_ID || a === PLAYER_TEAM_ID) soon.add(h === PLAYER_TEAM_ID ? a : h);
+      }
       let best: LeagueTeam | undefined;
       let bd = Infinity;
       for (const t of league.teams) {
-        if (t.id === PLAYER_TEAM_ID || !t.squad) continue;
+        if (t.id === PLAYER_TEAM_ID || !t.squad || soon.has(t.id)) continue;
         const d = Math.abs(teamPower(t.squad).total - mine * 1.05);
         if (d < bd) {
           bd = d;

@@ -385,6 +385,15 @@ describe('골 기록', () => {
 });
 
 describe('라이벌', () => {
+  it('라이벌은 시즌 첫 두 경기 상대 중에서 고르지 않는다', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const g = newGame(seed);
+      const l = g.state.league;
+      const soon = l.fixtures.slice(0, 2).flatMap((r) => r.filter(([h, a]) => h === PLAYER_TEAM_ID || a === PLAYER_TEAM_ID).map(([h, a]) => (h === PLAYER_TEAM_ID ? a : h)));
+      expect(soon).not.toContain(g.rival()!.id);
+    }
+  });
+
   it('시즌마다 라이벌이 하나 정해지고, 두 번 만나며, 이기면 보석을 더 받는다', () => {
     const g = newGame(3);
     const rv = g.rival()!;

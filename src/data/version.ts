@@ -1,6 +1,17 @@
-export const GAME_VERSION = '베타 0.19.0';
+export const GAME_VERSION = '베타 0.19.1';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.19.1',
+    date: '2026-11',
+    items: [
+      '튜토리얼을 닫은 뒤에 첫 경기가 시작됨 (읽는 동안 경기가 흘러가 버리던 문제)',
+      '시즌 첫 두 경기 상대는 라이벌로 정하지 않음',
+      '화면을 켠 채 오래 비웠다 돌아오면(노트북 덮개 등) 지나간 경기를 정산하고 알려 줌',
+      '상점 광고 보상 버튼이 화면 밖으로 넘치던 문제, 받을 게 없을 때 수령 버튼 비활성화',
+      '스카우트 확률표의 새 등급 표시를 NEW 글자로, 전술실 특성 목록은 같은 특성을 ×N으로 묶음',
+    ],
+  },
   {
     version: '베타 0.19.0',
     date: '2026-11',

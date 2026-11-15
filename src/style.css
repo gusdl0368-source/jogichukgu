@@ -2087,3 +2087,10 @@ img.pe {
 .rp-bar { height: 8px; background: #f0b4ac; border-radius: 999px; overflow: hidden; border: 1.5px solid var(--outline); }
 .rp-bar i { display: block; height: 100%; background: #2f6fed; }
 .rp-reasons { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+
+/* 줄바꿈(<br>)이 든 버튼: inline-flex라 br이 무시되어 한 줄로 넘치던 문제 */
+.btn:has(br) { flex-direction: column; gap: 0; line-height: 1.25; }
+.btn:has(br) br { display: none; }
+.grid3 > .btn { min-width: 0; padding-left: 4px; padding-right: 4px; }
+.new-tag { display: inline-block; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: #ffe08a; color: #1d2433; font-size: 9px; line-height: 14px; vertical-align: middle; }
+.trait-n { font-size: 12px; color: #2f6fed; }

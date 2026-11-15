@@ -14,7 +14,7 @@ import * as storeScreen from './screens/store';
 import * as tacticsScreen from './screens/tactics';
 import * as tournamentScreen from './screens/tournament';
 import * as trainingScreen from './screens/training';
-import { SHARED_ACTIONS } from './shared';
+import { SHARED_ACTIONS, openOffline } from './shared';
 
 export type TabId = 'tournament' | 'training' | 'match' | 'tactics' | 'store';
 
@@ -349,6 +349,12 @@ export class App {
 
   tick(): void {
     const now = this.now();
+    // 화면이 켜진 채로 시간이 크게 건너뛰었으면(노트북 덮개를 닫았다 연 경우 등) 돌아온 것으로 보고 정산한다
+    if (now - this.game.state.lastActive > 60_000 && !this.game.state.champion) {
+      const r = this.game.catchUp(now);
+      if (this.tab === 'match') this.refresh();
+      openOffline(this, r);
+    }
     this.game.ensureDaily(now);
     const done = this.game.tickResearch(now);
     if (done) {

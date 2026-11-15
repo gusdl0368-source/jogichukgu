@@ -39,7 +39,8 @@ export function lifecycle(app: App, now: number): void {
   const g = app.game;
   if (g.state.champion) return;
   if (!g.state.match) {
-    if (now < ui.nextMatchAt) return;
+    // 튜토리얼을 읽는 동안 첫 경기가 뒤에서 흘러가 버리지 않게 기다린다
+    if (now < ui.nextMatchAt || !g.state.seenTutorial) return;
     if (g.startMatch(now)) {
       ui.shownGoals = 0;
       ui.banner = null;
@@ -354,7 +355,7 @@ function renderProbs(app: App): string {
       </div>
     </div>
     <div class="prob-row" style="background:#1d2433"><span style="text-align:left">등급</span><span>Lv.${lv}</span><span class="next">${max ? '최대' : `Lv.${Math.min(MAX_SCOUT_LEVEL, lv + 1)}`}</span></div>
-    ${TIERS.map((t, i) => `<div class="prob-row" style="background:${t.color}"><span style="text-align:left">${t.name}</span><span>${pct(cur[i])}</span><span class="next">${pct(next[i])}${next[i] > 0 && cur[i] === 0 ? ' 🆕' : ''}</span></div>`).join('')}
+    ${TIERS.map((t, i) => `<div class="prob-row" style="background:${t.color}"><span style="text-align:left">${t.name}</span><span>${pct(cur[i])}</span><span class="next">${pct(next[i])}${next[i] > 0 && cur[i] === 0 ? ' <b class="new-tag">NEW</b>' : ''}</span></div>`).join('')}
     <p class="muted" style="text-align:center">레벨을 올리면 높은 등급 선수가 나올 확률이 오릅니다.</p>
     ${max ? '<p style="text-align:center"><b>최고 레벨입니다!</b></p>' : `<button class="btn block ${g.state.wallet.cash >= cost ? 'green' : 'gray'}" data-act="do-upgrade">스카우트 업그레이드 💵${fmt(cost)}</button>`}`;
 }
@@ -389,7 +390,7 @@ function renderStadium(app: App): string {
     <p style="text-align:center;margin:14px 0 4px"><b style="font-size:20px">💵 ${fmt(p.cash)} · 📞 ${p.contacts}</b></p>
     <p class="muted" style="text-align:center;margin:0 0 12px">${duration(p.seconds * 1000)} 동안 쌓임 · 최대 ${r.capHours}시간 ${p.capped ? '<b style="color:var(--red)">(가득 찼어요!)</b>' : ''}</p>
     <div class="btn-row">
-      <button class="btn" data-act="collect">수령하기</button>
+      <button class="btn" data-act="collect" ${p.cash < 1 && p.contacts < 1 ? 'disabled' : ''}>수령하기</button>
       <button class="btn green" data-act="stadium-ad" ${g.adsLeft('stadium') <= 0 ? 'disabled' : ''}>📺 +💵${fmt(ADS.cash * incomeMult(g.state.league.level))} (${g.adsLeft('stadium')}/${ADS.dailyLimit})</button>
     </div>
     ${renderStadiumUpgrade(app)}`;
