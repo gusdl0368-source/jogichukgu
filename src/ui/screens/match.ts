@@ -4,6 +4,7 @@ import type { MatchEvent } from '../../game/match';
 import type { MatchSummary } from '../../game/state';
 import { FORMATION, type Player } from '../../game/types';
 import { RIVAL_LINES, pickLine, rivalManager } from '../../data/rival';
+import { showPromotion } from '../promotion';
 import type { ActionHandler, App } from '../app';
 import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../cards';
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
@@ -67,10 +68,11 @@ export function lifecycle(app: App, now: number): void {
     openEnding(app);
   } else if (summary.seasonEnd) {
     if (summary.seasonEnd.promoted) {
-      sfx('fanfare');
-      confetti(app.root);
-    }
-    openSeasonEnd(app, summary);
+      // 승격 컷신을 먼저 보여 주고, 끝나면 시즌 종료 창
+      const level = summary.seasonEnd.level;
+      const avatars = [9, 8, 10, 7, 5].map((i) => app.state.squad[i]?.avatar).filter((a): a is NonNullable<typeof a> => !!a);
+      showPromotion(level, app.pitch.myKit, avatars, () => openSeasonEnd(app, summary));
+    } else openSeasonEnd(app, summary);
   } else if (app.state.stats.matches === 3 && !app.topModal()) {
     // 첫 경기 몇 판을 본 뒤에야 창단 패키지를 소개한다 (처음부터 결제창을 띄우지 않게)
     setTimeout(() => { if (!app.topModal()) openOffer(app); }, 1600);

@@ -1951,3 +1951,97 @@ img.pe {
 .sr-top .rank { margin-left: auto; }
 .sr-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
 .cmp-goals { margin: -2px 0 8px; font-family: var(--font-ui); font-size: 13px; color: #b5651d; text-align: center; }
+
+/* ═════════ 승격 컷신 ═════════ */
+.promo-cut {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: #0b1020;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: opacity 0.35s ease;
+}
+.promo-cut.out { opacity: 0; }
+.promo-cut canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+.promo-from {
+  position: absolute;
+  top: 12%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.promo-cut.reveal .promo-from { opacity: 0; transform: translateY(-14px); }
+.promo-text {
+  position: absolute;
+  top: 9%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.6);
+}
+.promo-cut.reveal .promo-text { animation: promo-slam 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) forwards; }
+.promo-up {
+  font-family: var(--font-display);
+  font-size: clamp(64px, 20vw, 92px);
+  line-height: 1;
+  color: #ffd35a;
+  -webkit-text-stroke: 8px var(--outline);
+  paint-order: stroke fill;
+  text-shadow: 0 7px 0 var(--outline);
+}
+.promo-tier {
+  display: inline-block;
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: #fff;
+  background: var(--tier);
+  border: 3px solid var(--outline);
+  border-radius: 16px;
+  padding: 4px 18px;
+  box-shadow: 0 4px 0 var(--outline);
+  -webkit-text-stroke: 4px var(--outline);
+  paint-order: stroke fill;
+}
+.promo-venue {
+  margin-top: 12px;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  color: #fff;
+  text-shadow: 0 2px 0 var(--outline);
+}
+.promo-skip {
+  position: absolute;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+@keyframes promo-slam {
+  to { opacity: 1; transform: none; }
+}
+@media (min-width: 620px) {
+  .promo-cut { left: 50%; right: auto; width: 460px; transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo-cut.reveal .promo-text { animation: none; opacity: 1; transform: none; }
+}

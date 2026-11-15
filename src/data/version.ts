@@ -1,6 +1,15 @@
-export const GAME_VERSION = '베타 0.16.0';
+export const GAME_VERSION = '베타 0.17.0';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.17.0',
+    date: '2026-11',
+    items: [
+      '승격 컷신: 어두운 경기장에 조명탑이 하나씩 켜지고, 관중석이 차오르며 새 리그와 홈구장이 공개됨',
+      '우리 선수들이 그라운드에서 환호, 리그가 높을수록 관중석이 더 가득',
+      '화면을 누르면 바로 넘어갈 수 있음',
+    ],
+  },
   {
     version: '베타 0.16.0',
     date: '2026-11',
