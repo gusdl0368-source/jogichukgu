@@ -78,6 +78,15 @@ export const ECONOMY = {
   dailyFreeGems: 10,
 };
 
+/** 스카우트 출장비: 회비로 연락처를 산다. 후반에 남아도는 회비를 쓸 곳. 하루 횟수 제한, 살수록 비싸진다 */
+export const TRAVEL_FUND = {
+  contacts: 20,
+  /** 첫 구매 가격 = 이 값 × 리그 수입 배율 (운동장에서 연락처 20개 모으는 동안 버는 회비의 2배) */
+  baseCash: 6000,
+  growth: 1.5,
+  dailyLimit: 5,
+};
+
 export const ADS = {
   /** 하루 광고 보상 횟수와 보상 */
   dailyLimit: 3,

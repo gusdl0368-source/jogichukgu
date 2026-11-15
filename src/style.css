@@ -594,7 +594,8 @@ button {
   font-size: 28px;
   line-height: 1;
 }
-.scout-btn:disabled {
+.scout-btn:disabled,
+.scout-btn.empty {
   filter: grayscale(0.8);
 }
 
@@ -2045,3 +2046,16 @@ img.pe {
 @media (prefers-reduced-motion: reduce) {
   .promo-cut.reveal .promo-text { animation: none; opacity: 1; transform: none; }
 }
+
+/* 승격 전망 */
+.outlook { background: #f4f6fb; border: 2px solid var(--outline); border-radius: 12px; padding: 8px 10px; margin: 0 0 10px; font-size: 13px; }
+.outlook b { font-family: var(--font-ui); font-weight: 400; font-size: 15px; }
+.outlook .ok { color: #1f9a44; font-family: var(--font-ui); }
+.outlook .bad { color: #d8402a; font-family: var(--font-ui); }
+.ol-bar { position: relative; height: 12px; margin: 6px 0 4px; background: #dfe3ee; border: 2px solid var(--outline); border-radius: 999px; overflow: hidden; }
+.ol-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #2f6fed, #7dff9b); }
+.ol-bar .mark { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--outline); }
+.ol-sub { display: flex; justify-content: space-between; color: var(--ink-soft); font-size: 12px; }
+.ol-tip { margin: 6px 0 0; color: var(--ink); line-height: 1.45; }
+.ol-tip b { font-weight: 700; color: #1f9a44; }
+.rec-btn { margin: -2px 0 10px; background: #ffd35a; color: var(--ink); text-shadow: none; font-size: 14px; }

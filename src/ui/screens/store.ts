@@ -5,7 +5,7 @@ import type { ActionHandler, App } from '../app';
 import { duration, esc, fmt, rewardChips, rewardText, won } from '../dom';
 import { playerCard, playerInfo, statBlock } from '../cards';
 import { resumePending } from './match';
-import { openClub } from '../bm';
+import { openClub, renderTravelFund } from '../bm';
 import { OFFERS } from '../../data/bm';
 import { openMembership, openPass } from '../shared';
 
@@ -30,6 +30,7 @@ export function render(app: App): string {
       <div class="grid3">${ads.map((a) => `<button class="btn small green" data-act="ad" data-arg="${a.kind}" ${g.adsLeft(a.kind) <= 0 ? 'disabled' : ''}>📺 ${g.adsLeft(a.kind)}/${ADS.dailyLimit}<br>${a.label}</button>`).join('')}</div>
     </div>
 
+    ${renderTravelFund(app)}
     ${renderOffers(app)}
     ${renderSuperstar(app)}
     <div class="grid2" style="margin-bottom:12px">

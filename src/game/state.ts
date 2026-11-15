@@ -89,6 +89,8 @@ export interface TournamentState {
 export interface DailyState {
   key: string;
   ads: { cash: number; contacts: number; gems: number; stadium: number; autoScout: number; offline: number; lucky?: number };
+  /** 오늘 스카우트 출장비를 쓴 횟수 */
+  travelFund?: number;
   freeGems: boolean;
   campUsed: Record<CampId, number>;
   campAd: Record<CampId, number>;

@@ -413,6 +413,45 @@ describe('기록실', () => {
   });
 });
 
+describe('후반부 편의', () => {
+  it('스카우트 출장비: 회비로 연락처, 살수록 비싸지고 하루 횟수 제한', () => {
+    const g = newGame();
+    g.state.wallet.cash = 1e9;
+    const c0 = g.travelFundCost();
+    const before = g.state.wallet.contacts;
+    expect(g.buyTravelFund()).not.toBeNull();
+    expect(g.state.wallet.contacts).toBe(before + 20);
+    expect(g.travelFundCost()).toBeGreaterThan(c0);
+    while (g.buyTravelFund()) {
+      // 한도까지
+    }
+    expect(g.travelFundLeft()).toBe(0);
+    g.state.wallet.cash = 0;
+    g.state.daily.travelFund = 0;
+    expect(g.buyTravelFund()).toBeNull();
+  });
+
+  it('팀이 강하면 캠프를 1단계부터 다시 오르지 않고 추천 단계까지 바로 도전할 수 있다', () => {
+    const g = newGame();
+    g.state.league.level = 6;
+    g.state.squad = generateSquad(new Rng(2), () => 6);
+    const rec = g.campRecommended('futsal');
+    expect(rec).toBeGreaterThan(1);
+    expect(g.campMaxPlayable('futsal')).toBe(Math.min(rec, 5));
+    expect(g.campRecommended('penalty')).toBe(1);
+  });
+
+  it('승격 전망은 리그 최강 팀과 우리 팀 파워를 비교하고, 실패한 시즌만큼 재도전 보너스가 붙는다', () => {
+    const g = newGame();
+    const o = g.promotionOutlook()!;
+    expect(o.leaderPower).toBeGreaterThan(0);
+    expect(o.retryBonusPct).toBe(0);
+    g.state.league.level = 4;
+    g.state.league.attempts = 3;
+    expect(g.promotionOutlook()!.retryBonusPct).toBeCloseTo(0.8, 5);
+  });
+});
+
 describe('연구', () => {
   it('작전판이 모자라거나 연구 중이면 시작할 수 있는 연구가 없다고 알려준다 (탭 빨간 점)', () => {
     const g = newGame();

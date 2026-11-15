@@ -2,7 +2,7 @@ import {
   ATTENDANCE, COLLECTION_SIZE, CREST_COLORS, CREST_ICONS, KITS, MAX_STADIUM_LEVEL, MAX_TRAIN, OFFERS, STADIUM_PER_LEVEL,
   STREAK_BONUS, WHEEL, WHEEL_AD_SPINS, WHEEL_GEM_COST, type KitDef, collectionKey, stadiumName,
 } from '../data/bm';
-import { TIERS } from '../data/balance';
+import { ADS, TIERS, TRAVEL_FUND } from '../data/balance';
 import { NATIONS } from '../data/nations';
 import type { Avatar } from '../game/types';
 import type { ActionHandler, App } from './app';
@@ -170,6 +170,37 @@ export function startupPopups(app: App): void {
   if (app.game.attendanceAvailable(now)) openAttendance(app);
 }
 
+// ───────── 스카우트 출장비: 회비로 연락처 ─────────
+
+export function renderTravelFund(app: App): string {
+  const g = app.game;
+  const left = g.travelFundLeft();
+  const cost = g.travelFundCost();
+  const can = left > 0 && app.state.wallet.cash >= cost;
+  return `<div class="panel travel-fund">
+      <div class="row-between"><h3 style="margin:0">🚌 스카우트 출장비</h3><span class="muted">오늘 ${left}/${TRAVEL_FUND.dailyLimit}</span></div>
+      <p class="muted" style="margin:4px 0 8px">회비로 다른 동네까지 선수를 보러 가요. 살수록 출장비가 올라가고, 매일 새벽 3시에 초기화돼요.</p>
+      <button class="btn block ${can ? 'green' : 'gray'}" data-act="travel-fund" ${can ? '' : 'disabled'}>${left <= 0 ? '오늘은 다 다녀왔어요' : `💵 ${fmt(cost)} → 📞 +${TRAVEL_FUND.contacts}`}</button>
+    </div>`;
+}
+
+/** 연락처가 떨어졌을 때: 연락처를 구할 수 있는 방법을 한곳에 모아 보여준다 */
+export function openNoContacts(app: App): void {
+  app.openModal({
+    id: 'no-contacts',
+    live: true,
+    render: () => {
+      const g = app.game;
+      const p = g.stadiumPending(app.now());
+      return `<h2>📞 연락처가 떨어졌어요</h2>
+        <p class="muted" style="text-align:center;margin-top:-4px">스카우트 1번에 연락처 1개가 들어요.</p>
+        <div class="panel"><div class="row-between"><div><b>🏟️ 운동장 수익</b><div class="muted">지금 연락처 ${p.contacts}개 쌓임</div></div><button class="btn small ${p.contacts > 0 ? '' : 'gray'}" data-act="collect" ${p.contacts > 0 ? '' : 'disabled'}>수령</button></div></div>
+        <div class="panel"><div class="row-between"><div><b>📺 광고 보고 받기</b><div class="muted">📞 +${ADS.contacts} · 오늘 ${g.adsLeft('contacts')}/${ADS.dailyLimit}</div></div><button class="btn small green" data-act="ad" data-arg="contacts" ${g.adsLeft('contacts') <= 0 ? 'disabled' : ''}>보기</button></div></div>
+        ${renderTravelFund(app)}`;
+    },
+  });
+}
+
 // ───────── 구단: 도감 · 유니폼 · 엠블럼 ─────────
 
 export function openClub(app: App, tab: typeof ui.clubTab = 'collection'): void {
@@ -332,6 +363,14 @@ export const BM_ACTIONS: Record<string, ActionHandler> = {
         if (app.topModal()?.id === 'offer') app.closeModal();
       }
     });
+  },
+  'travel-fund'(app) {
+    const r = app.game.buyTravelFund();
+    if (!r) return app.toast('💵 회비가 모자라요');
+    sfx('coin');
+    app.toast(`🚌 출장 다녀왔어요! 📞+${r.contacts}`);
+    app.save();
+    app.refresh();
   },
   'qb-club'(app) {
     openClub(app);

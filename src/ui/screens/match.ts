@@ -10,7 +10,7 @@ import { playerCard, playerInfo, shortName, statBlock, summaryStats } from '../c
 import { crestHtml, duration, esc, fmt, pct, tierBadge } from '../dom';
 import { confetti } from '../effects';
 import { duckMusic, setCrowd, sfx } from '../sound';
-import { openOffer, renderQuickBar, renderStadiumUpgrade, renderTraining } from '../bm';
+import { openNoContacts, openOffer, renderQuickBar, renderStadiumUpgrade, renderTraining } from '../bm';
 import { openEnding, openMissions, openPass, openMembership, openSeasonEnd } from '../shared';
 import { STYLES, type TacticStyle } from '../../game/match';
 import { drawFullTime } from '../pitch';
@@ -147,7 +147,7 @@ export function render(app: App): string {
   <div class="actions" style="grid-template-columns:52px 52px 1fr 84px 52px">
     <button class="sq-btn" data-act="league"><span class="ico">${TIERS[s.league.level].icon}</span>${rank}</button>
     <button class="sq-btn" data-act="stadium" id="stadium-btn"><span class="ico">🏟️</span><span id="stadium-cash">${fmt(stadium.cash)}</span>${stadium.capped ? '<span class="dot"></span>' : ''}</button>
-    <button class="scout-btn" data-act="scout" ${s.wallet.contacts <= 0 ? 'disabled' : ''}><span class="ico">${pxIcon('scout', 26)}</span><span class="cnt">${pxIcon('contacts', 13)} ${fmt(s.wallet.contacts)}</span></button>
+    <button class="scout-btn ${s.wallet.contacts <= 0 ? 'empty' : ''}" data-act="scout"><span class="ico">${pxIcon('scout', 26)}</span><span class="cnt">${pxIcon('contacts', 13)} ${fmt(s.wallet.contacts)}</span></button>
     <button class="sq-btn" data-act="probs">${(s.luckyUntil ?? 0) > now || g.isMember(now) ? '<span class="buff">🍀</span>' : ''}스카우트<br><b style="font-size:15px">Lv.${s.scoutLevel}</b>${s.wallet.cash >= g.upgradeCost() && s.scoutLevel < MAX_SCOUT_LEVEL ? '<span class="dot"></span>' : ''}</button>
     <button class="sq-btn ${ui.autoRunning ? 'on' : ''}" data-act="auto"><span class="ico">🔁</span>${ui.autoRunning ? '자동 ON' : '자동'}</button>
   </div>`;
@@ -370,6 +370,7 @@ function renderLeague(app: App): string {
   const lv = s.league.level;
   return `<h2>${tierBadge(lv)} 순위표</h2>
     <p class="muted" style="text-align:center;margin-top:-4px">시즌 ${s.league.season} · ${s.league.round}/${s.league.fixtures.length}경기 · <b>1위를 하면 ${lv + 1 < TIERS.length ? `${TIERS[lv + 1].name} 승격` : '세계 정상!'}</b></p>
+    ${renderOutlook(app)}
     <p class="muted" style="text-align:center;margin:-2px 0 8px;font-size:12px">🔥 표시는 이번 시즌 라이벌 · 이기면 회비 2배와 💎+5</p>
     <table class="table">
       <tr><th>#</th><th class="l">팀</th><th>경기</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr>
@@ -377,6 +378,24 @@ function renderLeague(app: App): string {
         <td>${i + 1}</td><td class="l">${crestHtml(team.crest, 20)} ${team.id === app.game.rival()?.id ? '<span class="rival-mini" title="라이벌">🔥</span>' : ''}${esc(team.name)}</td>
         <td>${row.played}</td><td>${row.won}</td><td>${row.drawn}</td><td>${row.lost}</td><td>${row.gf - row.ga}</td><td><b>${row.points}</b></td></tr>`).join('')}
     </table>`;
+}
+
+const LINE_NAME = { atk: '공격', mid: '미드', def: '수비' } as const;
+const LINE_HINT = { atk: '공격수(LW·ST·RW)', mid: '미드필더(CM·CAM)', def: '수비수(LB·CB·RB)와 골키퍼' } as const;
+
+/** 순위표 위: 리그 최강 팀과의 차이, 약한 라인, 재도전 보너스 */
+function renderOutlook(app: App): string {
+  const o = app.game.promotionOutlook();
+  if (!o || app.state.champion) return '';
+  const ratio = Math.min(1.25, o.myPower / o.leaderPower);
+  const gap = Math.round((o.myPower / o.leaderPower - 1) * 1000) / 10;
+  return `<div class="outlook">
+      <div class="row-between"><b>승격 전망</b><span class="${gap >= 0 ? 'ok' : 'bad'}">${gap >= 0 ? `최강 팀보다 ${gap}% 강해요` : `최강 팀보다 ${-gap}% 약해요`}</span></div>
+      <div class="ol-bar"><i style="width:${(ratio / 1.25) * 100}%"></i><span class="mark" style="left:${(1 / 1.25) * 100}%"></span></div>
+      <div class="ol-sub"><span>우리 ⚡${fmt(Math.round(o.myPower))}</span><span>${esc(o.leaderName)} ⚡${fmt(Math.round(o.leaderPower))}</span></div>
+      <p class="ol-tip">${o.allAhead ? '💪 모든 라인에서 리그 최강 팀보다 앞서요. 이번 시즌 승격을 노려 보세요!' : `💡 ${LINE_NAME[o.weakLine]} 라인이 가장 밀려요. ${LINE_HINT[o.weakLine]}를 보강해 보세요.`}</p>
+      ${o.attempts > 0 ? `<p class="ol-tip">🔁 재도전 ${o.attempts}시즌째: 이 리그 상대들이 <b>${o.retryBonusPct}%</b> 약해졌어요. 포기하지 마세요!</p>` : ''}
+    </div>`;
 }
 
 function renderPlayer(app: App, slot: number): string {
@@ -439,7 +458,7 @@ export const actions: Record<string, ActionHandler> = {
   scout(app) {
     if (app.state.pending) return openCompare(app);
     if (!app.game.scout()) {
-      app.toast('📞 연락처가 부족해요. 운동장 수익을 수령하세요!');
+      openNoContacts(app);
       return;
     }
     openCompare(app);
@@ -496,7 +515,7 @@ export const actions: Record<string, ActionHandler> = {
     if (ui.autoRunning) {
       stopAuto();
     } else {
-      if (app.state.wallet.contacts <= 0) return app.toast('📞 연락처가 없어요');
+      if (app.state.wallet.contacts <= 0) return openNoContacts(app);
       ui.autoRunning = true;
       app.closeModal();
       runAuto(app);

@@ -1,6 +1,16 @@
-export const GAME_VERSION = '베타 0.17.0';
+export const GAME_VERSION = '베타 0.18.0';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.18.0',
+    date: '2026-11',
+    items: [
+      '스카우트 출장비: 남는 회비로 연락처를 살 수 있음 (상점, 하루 5번, 살수록 비싸짐)',
+      '연락처가 떨어지면 스카우트 버튼이 운동장 수령·광고·출장비를 한 번에 안내',
+      '순위표에 승격 전망: 리그 최강 팀과의 파워 차이, 가장 약한 라인, 재도전 보너스',
+      '훈련 캠프: 팀이 강해졌으면 한 번에 최대 5단계씩 건너뛰어 도전 가능',
+    ],
+  },
   {
     version: '베타 0.17.0',
     date: '2026-11',

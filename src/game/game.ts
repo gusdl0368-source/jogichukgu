@@ -1,4 +1,4 @@
-import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, LUCKY_SCOUT, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, incomeMult, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
+import { ADS, AUTO_SCOUT, ECONOMY, LEAGUE, LUCKY_SCOUT, MATCH, MAX_SCOUT_LEVEL, MEMBERSHIP, SKILLS, TIERS, TOURNAMENT, TRAINING, TRAVEL_FUND, incomeMult, scoutProbabilities, scoutUpgradeCost } from '../data/balance';
 import { RIVAL, RIVAL_LINES, pickLine, rivalManager } from '../data/rival';
 import { RESEARCH, type ResearchEffect, type TreeId, researchCost, rushGemCost } from '../data/research';
 import { EXTRA_SKILL_SLOT, GEM_ITEMS, GEM_PACKS, MEMBERSHIP_PRODUCT, PASS_PRODUCT, PASS_STEPS, SPONSORS, dailyDeals, passReward } from '../data/shop';
@@ -11,7 +11,7 @@ import {
 import { randomCrest, randomUserTeamName } from '../data/teams';
 import { traitById, traitsFor } from '../data/traits';
 import { CAMPS, type CampId, campDifficultyCap, campWinChance } from '../data/training';
-import { type LeagueTeam, PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
+import { AI_PITY_PER_SEASON, AI_POWER_PER_LEVEL, type LeagueTeam, PLAYER_TEAM_ID, aiSide, createLeague, myFixture, myRank, playOtherMatches, recordResult, seasonOver } from './league';
 import { type MatchMods, type TacticStyle, type TeamSide, explain, simulateMatch } from './match';
 import { compareSlot, computeOverall, generatePlayer, generateSquad, teamPower } from './players';
 import { Rng } from './rng';
@@ -20,6 +20,8 @@ import { type Currency, type Player, type Reward, type TeamPower } from './types
 
 /** 이만큼 골을 넣고 떠난 선수는 기록실 레전드로 남는다 */
 const LEGEND_MIN_GOALS = 5;
+/** 훈련 캠프에서 한 번에 건너뛸 수 있는 최대 단계 */
+const CAMP_SKIP = 5;
 
 export type AdKind = 'cash' | 'contacts' | 'gems';
 
@@ -288,6 +290,27 @@ export class Game {
     return Math.max(0, ADS.dailyLimit - (this.state.daily.ads[kind] ?? 0));
   }
 
+  /** 오늘 남은 스카우트 출장비 횟수 */
+  travelFundLeft(): number {
+    return TRAVEL_FUND.dailyLimit - (this.state.daily.travelFund ?? 0);
+  }
+
+  /** 다음 출장비 가격 (리그가 오를수록, 오늘 많이 살수록 비싸다) */
+  travelFundCost(): number {
+    const n = this.state.daily.travelFund ?? 0;
+    return Math.round(TRAVEL_FUND.baseCash * incomeMult(this.state.league.level) * Math.pow(TRAVEL_FUND.growth, n));
+  }
+
+  buyTravelFund(): Reward | null {
+    if (this.travelFundLeft() <= 0) return null;
+    const cost = this.travelFundCost();
+    if (!this.spend({ cash: cost })) return null;
+    this.state.daily.travelFund = (this.state.daily.travelFund ?? 0) + 1;
+    const r = { contacts: TRAVEL_FUND.contacts };
+    this.add(r);
+    return r;
+  }
+
   watchAd(kind: AdKind | 'stadium'): Reward | null {
     if (this.adsLeft(kind) <= 0) return null;
     this.state.daily.ads[kind]++;
@@ -332,6 +355,24 @@ export class Game {
       league.rivalRecord = { won: 0, drawn: 0, lost: 0 };
     }
     return league.teams.find((t) => t.id === league.rivalId);
+  }
+
+  /** 승격 전망: 리그 최강 팀과 우리 팀 비교, 가장 약한 라인, 재도전 보너스 */
+  promotionOutlook(): { leaderName: string; leaderPower: number; myPower: number; weakLine: 'atk' | 'mid' | 'def'; allAhead: boolean; retryBonusPct: number; attempts: number } | null {
+    const league = this.state.league;
+    const me = this.mySide().power;
+    let best: { name: string; power: TeamPower } | null = null;
+    for (const t of league.teams) {
+      if (t.id === PLAYER_TEAM_ID || !t.squad) continue;
+      const p = aiSide(t, league.level, league.attempts).power;
+      if (!best || p.total > best.power.total) best = { name: t.name, power: p };
+    }
+    if (!best) return null;
+    const lines = (['atk', 'mid', 'def'] as const).map((k) => ({ k, r: me[k] / Math.max(1, best!.power[k]) }));
+    lines.sort((a, b) => a.r - b.r);
+    const attempts = league.attempts ?? 0;
+    const retry = Math.min(league.level * AI_POWER_PER_LEVEL, attempts * AI_PITY_PER_SEASON);
+    return { leaderName: best.name, leaderPower: best.power.total, myPower: me.total, weakLine: lines[0].k, allAhead: lines[0].r >= 1, retryBonusPct: Math.round(retry * 1000) / 10, attempts };
   }
 
   /** 다음(또는 지금) 경기가 라이벌전인가 */
@@ -640,7 +681,21 @@ export class Game {
 
   /** 도전 가능한 최고 난이도: 깬 단계 + 1, 그리고 리그 단계에 따른 상한 */
   campMaxPlayable(id: CampId): number {
-    return Math.min(campDifficultyCap(this.state.league.level), this.state.training.cleared[id] + 1);
+    const cap = campDifficultyCap(this.state.league.level);
+    const cleared = this.state.training.cleared[id];
+    // 강해졌으면 건너뛸 수 있지만, 한 번에 최대 CAMP_SKIP 단계까지만 (보상이 단계에 비례하므로)
+    return Math.min(cap, Math.max(cleared + 1, Math.min(cleared + CAMP_SKIP, this.campRecommended(id))));
+  }
+
+  /** 팀 파워로 이길 만한(승률 70% 이상) 가장 높은 단계. 팀이 강해졌으면 1단계부터 다시 오를 필요가 없다 */
+  campRecommended(id: CampId): number {
+    const camp = CAMPS.find((c) => c.id === id);
+    const cap = campDifficultyCap(this.state.league.level);
+    if (!camp?.requiredPower) return 1;
+    const power = this.power().total;
+    let d = 1;
+    while (d < cap && campWinChance(power, camp.requiredPower(d + 1)) >= 0.7) d++;
+    return d;
   }
 
   /** 입장권 하나 사용. 도전 가능한 난이도는 깬 단계 + 1까지 */

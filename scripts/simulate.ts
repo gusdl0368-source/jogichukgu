@@ -81,6 +81,10 @@ function spend(now: number): void {
   while (!process.env.SIM_NO_DEX && g.claimCollection()) {
     // 도감 보상
   }
+  // 그래도 남는 회비: 스카우트 출장비로 연락처 (넉넉할 때만)
+  let bought = false;
+  while (!process.env.SIM_NO_FUND && g.travelFundLeft() > 0 && g.state.wallet.cash > g.travelFundCost() * 3 && g.buyTravelFund()) bought = true;
+  if (bought) scoutAll();
 }
 
 function rewards(): void {

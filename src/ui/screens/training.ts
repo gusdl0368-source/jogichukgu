@@ -38,6 +38,10 @@ export function render(app: App): string {
           <div style="text-align:center"><b>난이도 ${d}</b><div class="muted">최고 기록 ${cleared}단계</div></div>
           <button class="btn small gray" data-act="diff" data-arg="${c.id}:1" ${d >= max ? 'disabled' : ''}>▶</button>
         </div>
+        ${(() => {
+          const rec = Math.min(max, g.campRecommended(c.id));
+          return rec > d ? `<button class="btn small block rec-btn" data-act="diff-rec" data-arg="${c.id}">⏩ 팀 실력에 맞게 ${rec}단계로 건너뛰기</button>` : '';
+        })()}
         <div class="row-between" style="margin-bottom:8px"><span class="muted">보상</span><div class="rewards">${rewardChips(c.reward(d))}</div></div>
         ${chance !== null ? `<div class="row-between" style="margin-bottom:8px"><span class="muted">기준 파워 ⚡${fmt(c.requiredPower!(d))}</span><b style="color:${chance > 0.6 ? 'var(--green)' : chance > 0.35 ? '#d08a00' : 'var(--red)'}">예상 승률 ${Math.round(chance * 100)}%</b></div>` : ''}
         <div class="btn-row">
@@ -88,6 +92,11 @@ export const actions: Record<string, ActionHandler> = {
   diff(app, arg) {
     const [id, delta] = arg.split(':') as [CampId, string];
     chosen[id] = Math.max(1, Math.min(maxPlayable(app.game, id), chosen[id] + Number(delta)));
+    app.refresh();
+  },
+  'diff-rec'(app, arg) {
+    const id = arg as CampId;
+    chosen[id] = Math.min(maxPlayable(app.game, id), app.game.campRecommended(id));
     app.refresh();
   },
   enter(app, arg) {
