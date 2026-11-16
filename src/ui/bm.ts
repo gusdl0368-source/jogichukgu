@@ -164,7 +164,7 @@ function renderOffer(app: App, o: ReturnType<typeof app.game.activeOffers>[numbe
   </div>`;
 }
 
-/** 처음 켰을 때 띄울 팝업들 (출석 → 특가 순서로 쌓인다) */
+/** 처음 켰을 때 띄울 팝업들. "다시 오셨네요"보다 먼저 열어서 그 밑에 깔린다 */
 export function startupPopups(app: App): void {
   const now = app.now();
   if (!app.state.seenTutorial) return;

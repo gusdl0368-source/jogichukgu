@@ -29,11 +29,12 @@ async function boot(): Promise<void> {
 
   showTitle(() => {
     if (restored) app.toast('💾 지워진 저장을 백업에서 되살렸어요');
+    // 창은 나중에 연 것이 위에 뜬다: 출석·특가는 맨 밑, 그 위에 "다시 오셨네요", 맨 위에 보던 스카우트 비교
+    startupPopups(app);
     if (!game.state.seenTutorial) openTutorial(app);
     else if (game.state.champion) openEnding(app);
     else openOffline(app, report);
     matchScreen.resumePending(app);
-    startupPopups(app);
   });
 
   // claude.ai에서 열렸고 이미 계정 저장을 허락했으면 이어서 쓴다 (처음엔 설정에서 직접 켠다)
