@@ -123,7 +123,9 @@ export function render(app: App): string {
     <div class="scoreboard">
       <div class="side me">${crestHtml(s.crest, 28)}<div style="min-width:0"><div class="name">${esc(s.teamName)}</div><div class="pw">⚡${power.total}</div></div></div>
       <div class="score" id="score">0 - 0</div>
-      <div class="side opp">${opp ? crestHtml(opp.crest, 28) : ''}<div style="min-width:0"><div class="name">${opp && opp.id === app.game.rival()?.id ? '🔥' : ''}${esc(opp?.name ?? '-')}</div><div class="pw">⚡${Math.round(oppPower * 10) / 10}</div></div></div>
+      ${s.champion && !s.match
+        ? '<div class="side opp champ"><span class="champ-cup">🏆</span><div style="min-width:0"><div class="name">세계 정상</div><div class="pw">슈퍼스타 리그 우승</div></div></div>'
+        : `<div class="side opp">${opp ? crestHtml(opp.crest, 28) : ''}<div style="min-width:0"><div class="name">${opp && opp.id === app.game.rival()?.id ? '🔥' : ''}${esc(opp?.name ?? '-')}</div><div class="pw">⚡${Math.round(oppPower * 10) / 10}</div></div></div>`}
     </div>
     <div class="venue">${app.game.isRivalMatch() && !s.champion ? '<span class="rival-tag">🔥 라이벌전</span> ' : ''}${TIERS[s.league.level].icon} ${TIERS[s.league.level].name} · ${TIERS[s.league.level].venue} · <button class="venue-style" data-act="style-cycle">${STYLES[s.style].icon} ${STYLES[s.style].name}</button></div>
     <div class="pitch-wrap" id="pitch-wrap">

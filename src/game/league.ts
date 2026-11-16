@@ -150,7 +150,7 @@ export function leagueMods(level: number): MatchMods {
 
 export function aiSide(team: LeagueTeam, level: number, attempts = 0): TeamSide {
   const squad = team.squad!;
-  // 높은 리그 팀은 훈련·연구도 되어 있다: 리그 단계마다 팀 파워 +3.2% (실패한 시즌만큼 줄어듦)
+  // 높은 리그 팀은 훈련·연구도 되어 있다: 리그 단계마다 팀 파워 +5.5% (실패한 시즌마다 0.25%p씩 줄어듦)
   const bonus = Math.max(0, level * AI_POWER_PER_LEVEL - attempts * AI_PITY_PER_SEASON);
   return { name: team.name, squad, power: teamPower(squad, bonus), mods: leagueMods(level) };
 }

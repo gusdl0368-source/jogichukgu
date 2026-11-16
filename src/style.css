@@ -239,6 +239,13 @@ button {
   flex-direction: row-reverse;
   text-align: right;
 }
+/* 엔딩 뒤에는 상대가 없으니 우승 표시 */
+.scoreboard .side.opp.champ {
+  background: linear-gradient(90deg, #f5b81c, #ffd86a);
+  color: #3d2600;
+}
+.scoreboard .side.opp.champ .pw { color: #6b4500; }
+.scoreboard .champ-cup { font-size: 22px; }
 .scoreboard .name {
   font-size: 13px;
   white-space: nowrap;
