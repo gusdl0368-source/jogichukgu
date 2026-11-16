@@ -1,5 +1,5 @@
 import { TIERS } from '../data/balance';
-import { JOBS_BY_TIER, NATIONS, type Nation } from '../data/nations';
+import { JOBS_BY_TIER, NATIONS, type Nation, jobFitsAge } from '../data/nations';
 import { traitChance, traitsFor } from '../data/traits';
 import { Rng } from './rng';
 import { FORMATION, type Player, type Position, type StatKey, type Stats, STAT_KEYS, type TeamPower } from './types';
@@ -107,10 +107,12 @@ export function generatePlayer(rng: Rng, tier: number, position?: Position): Pla
   const trait = rng.chance(traitChance(tier)) ? rng.pick(traitsFor(pos)).id : undefined;
   // 동네는 나이가 제각각, 프로는 전성기 나이
   const age = tier <= 1 ? rng.int(17, 58) : tier <= 3 ? rng.int(18, 38) : rng.int(19, 34);
+  // 나이와 안 맞는 직업(17살 은퇴자, 45살 고등학생)은 빼고 고른다
+  const jobs = JOBS_BY_TIER[tier].filter((j) => jobFitsAge(j, age));
   return {
     id: newId(rng),
     name: randomName(rng, nation, tier),
-    job: rng.pick(JOBS_BY_TIER[tier]),
+    job: rng.pick(jobs.length ? jobs : JOBS_BY_TIER[tier]),
     age,
     position: pos,
     nation: nation.code,
