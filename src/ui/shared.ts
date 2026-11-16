@@ -176,11 +176,9 @@ function openSettings(app: App): void {
         <div class="row-between"><h3 style="margin:0">🎵 배경음악</h3><button class="btn small ${app.state.settings.music !== false ? 'green' : 'gray'}" data-act="toggle-music">${app.state.settings.music !== false ? '켜짐' : '꺼짐'}</button></div>
         <div class="row-between"><h3 style="margin:0">📳 진동</h3><button class="btn small ${app.state.settings.vibrate !== false ? 'green' : 'gray'}" data-act="toggle-vibrate">${app.state.settings.vibrate !== false ? '켜짐' : '꺼짐'}</button></div>
       </div>
-      <div class="panel"><div class="row-between"><h3 style="margin:0">☁️ 계정 저장</h3>${
-        app.cloud.status === 'on' ? '<b style="color:var(--green)">켜짐</b>'
-        : app.cloud.status === 'unavailable' ? '<span class="muted">이 화면에선 안 돼요</span>'
-        : '<button class="btn small" data-act="cloud-on">켜기</button>'}</div>
-        <p class="muted" style="margin:6px 0 0">켜면 다른 기기에서도 이어서 할 수 있어요. 끄면 이 브라우저에만 저장돼요.</p></div>
+      ${app.cloud.status === 'unavailable' ? '' /* claude.ai 밖(게임 사이트 등)에서는 쓸 수 없으니 칸을 숨긴다 */ : `<div class="panel"><div class="row-between"><h3 style="margin:0">☁️ 계정 저장</h3>${
+        app.cloud.status === 'on' ? '<b style="color:var(--green)">켜짐</b>' : '<button class="btn small" data-act="cloud-on">켜기</button>'}</div>
+        <p class="muted" style="margin:6px 0 0">켜면 다른 기기에서도 이어서 할 수 있어요. 끄면 이 브라우저에만 저장돼요.</p></div>`}
       <div class="panel"><h3>저장 코드</h3>
         <p class="muted" style="margin:0 0 8px">다른 기기로 옮기거나 백업할 때 씁니다. 복사한 코드를 다른 기기의 ‘가져오기’에 붙여넣으세요. 브라우저 기록을 지우면 저장도 사라지니, 가끔 복사해 두면 안전해요.</p>
         <div class="btn-row"><button class="btn small" data-act="export-save">코드 복사</button><button class="btn small gray" data-act="import-open">가져오기</button></div>
