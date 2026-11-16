@@ -1,6 +1,16 @@
-export const GAME_VERSION = '베타 0.19.1';
+export const GAME_VERSION = '베타 0.19.2';
 
 export const PATCH_NOTES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '베타 0.19.2',
+    date: '2026-11',
+    items: [
+      '팝업이 여러 개 이어서 뜨거나 경기가 끝날 때 화면이 깜빡이던 문제',
+      '작은 폰·낮은 창에서 화면을 압축해 경기장과 빠른 메뉴가 가려지지 않게 (타이틀 글씨 겹침도 수정)',
+      '게임 사이트 안에 아주 작게 열리면 전체 화면으로 하기 안내',
+      '저장을 한 벌 더 백업해 두고, 브라우저 저장이 지워져도 다음 접속 때 되살림',
+    ],
+  },
   {
     version: '베타 0.19.1',
     date: '2026-11',

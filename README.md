@@ -1,6 +1,8 @@
 # 새벽 조기축구
 
-새벽 동네 운동장에서 시작해 **세계 정상(슈퍼스타 리그 우승)**까지 가는 방치형 축구 구단 게임입니다. 현재 **베타 0.19.0**.
+새벽 동네 운동장에서 시작해 **세계 정상(슈퍼스타 리그 우승)**까지 가는 방치형 축구 구단 게임입니다. 현재 **베타 0.19.2**.
+
+바로 플레이: https://game.saaskr.com/games/%EC%83%88%EB%B2%BD-%EC%A1%B0%EA%B8%B0%EC%B6%95%EA%B5%AC
 레퍼런스 게임(Pocket Scout FC)의 시스템 구조만 참고했고, 이름·그림·문구는 전부 새로 만들었습니다.
 분석 문서는 [`docs/pocket-scout-fc-analysis.md`](docs/pocket-scout-fc-analysis.md), 제작 프롬프트는 [`docs/rebuild-prompt.md`](docs/rebuild-prompt.md)에 있습니다.
 
@@ -12,7 +14,7 @@ npm run dev        # http://localhost:5173 (휴대폰 세로 화면 기준)
 npm test           # 게임 규칙 단위 테스트
 npm run sim        # 밸런스 시뮬레이터 (무과금, 하루 4번 × 15분 접속)
 npm run sim -- 60 2 10   # 60일, 하루 2번, 10분씩
-npm run build:artifact   # 단일 HTML(dist-artifact/index.html)로 빌드
+npm run build:artifact   # 단일 HTML로 빌드: dist-artifact/index.html(claude.ai 아티팩트용), standalone.html(게임 사이트 업로드용)
 ```
 
 ## 게임 구조
@@ -37,7 +39,7 @@ npm run build:artifact   # 단일 HTML(dist-artifact/index.html)로 빌드
 | 상점 | 벤치 휴식(광고), 오늘의 슈퍼스타, 정회원 구독, 시즌 패스, 일일 특가, 젬, 동네 스폰서 — **결제는 가짜**(확인 후 바로 지급) |
 | 리텐션 | 7일 출석, 경기장 증축, 선수 훈련, 선수 도감, 행운 룰렛 |
 | 수익화(가짜 결제) | 첫 구매 2배, 창단·승격·복귀 한정 특가, 오프라인 2배 광고, 유니폼·엠블럼 꾸미기 |
-| 저장 | 브라우저 + claude.ai 계정 저장, 저장 코드 내보내기/가져오기, 이전 버전 자동 이전 |
+| 저장 | 브라우저 + IndexedDB 백업 + claude.ai 계정 저장, 저장 코드 내보내기/가져오기, 이전 버전 자동 이전 |
 
 ## 코드 구조
 
@@ -48,8 +50,8 @@ src/game/      게임 규칙. DOM을 모르는 순수 로직이라 테스트·�
   match.ts     경기 엔진과 결과 이유 설명
   league.ts    일정, 순위, AI 팀
   state.ts     저장 데이터 형식, 하루 초기화(03:00)
-src/ui/        화면 (탭별 screens/, 공용 모달 shared.ts, 경기장 캔버스 pitch.ts, 픽셀 얼굴 avatar.ts)
-src/storage.ts 저장: 브라우저 localStorage + claude.ai 아티팩트에서는 보는 사람 전용 db 문서
+src/ui/        화면 (탭별 screens/, 공용 모달 shared.ts, 경기장 캔버스 pitch.ts, 픽셀 얼굴 avatar.ts, 작은 창 안내 smallWindow.ts)
+src/storage.ts 저장: 브라우저 localStorage + IndexedDB 백업 + claude.ai 아티팩트에서는 보는 사람 전용 db 문서
 scripts/       밸런스 시뮬레이터, 아티팩트 빌드
 tests/         vitest 단위 테스트
 ```
@@ -57,6 +59,6 @@ tests/         vitest 단위 테스트
 ## 밸런스
 
 수치는 전부 `src/data/*.ts`에 있습니다. 회비 보상은 대부분 "운동장 몇 초치 × 리그 배율(`incomeMult`)"로 정해서, 한 곳을 바꾸면 전체가 같이 움직입니다.
-하루 1시간(4번 × 15분) 기준 엔딩까지: 무과금 광고 안 봄 **약 85일**, 광고 봄 **약 55일**, 광고 + 패스 + 정회원 **약 38일** (시뮬레이터 가운데 값, 경기 한 판 90초).
+하루 1시간(4번 × 15분) 기준 엔딩까지: 무과금 광고 안 봄 **약 78일**, 광고 봄 **약 63일**, 광고 + 패스 + 정회원 **약 39일** (시뮬레이터 시드 4개의 가운데 값, 경기 한 판 90초. 범위는 점검표 참고).
 
 베타 출시 전 점검 목록은 [`docs/beta-checklist.md`](docs/beta-checklist.md), 리텐션·수익화 설계는 [`docs/business-model.md`](docs/business-model.md)에 있습니다.
