@@ -66,6 +66,8 @@ export class App {
   sub: Record<string, string> = {};
   private modalStack: ModalState[] = [];
   private lastModalHtml = '';
+  /** 지금 화면에 그려진 창 (같은 창이면 다시 그릴 때 애니메이션을 재생하지 않는다) */
+  private shownModal: ModalState | undefined;
   private lastSave = 0;
   private extraActions: Record<string, ActionHandler> = {};
   readonly cloud = new CloudSave();
@@ -90,6 +92,8 @@ export class App {
 
   render(): void {
     this.applyKit();
+    // 떠 있는 창은 화면을 다시 그려도 그대로 둔다 (탭을 바꿀 때 창이 깜빡이지 않게)
+    const keptModalRoot = this.root.querySelector('#modal-root');
     this.root.innerHTML = `
       ${this.renderTopbar()}
       <div class="content" id="content">${SCREENS[this.tab].render(this)}</div>
@@ -101,8 +105,9 @@ export class App {
       </nav>
       <div id="modal-root"></div>`;
     pixelize(this.root);
+    if (keptModalRoot) this.root.querySelector('#modal-root')?.replaceWith(keptModalRoot);
+    else this.shownModal = undefined;
     SCREENS[this.tab].mounted?.(this);
-    this.lastModalHtml = '';
     this.renderModal();
   }
 
@@ -212,7 +217,7 @@ export class App {
     return this.modalStack[this.modalStack.length - 1];
   }
 
-  renderModal(force = false): void {
+  renderModal(_force = false): void {
     const root = this.root.querySelector('#modal-root');
     if (!root) return;
     let m = this.topModal();
@@ -221,15 +226,42 @@ export class App {
       this.modalStack.pop();
       m = this.topModal();
     }
-    const html = m
-      ? `<div class="overlay" data-act="${m.dismissable ? 'overlay' : ''}"><div class="modal ${m.cls ?? ''}">${m.dismissable ? '<button class="close-x" data-act="close">✕</button>' : ''}${m.render()}</div></div>`
-      : '';
-    if (!force && html === this.lastModalHtml) return;
-    const prevScroll = root.querySelector('.modal')?.scrollTop ?? 0;
-    root.innerHTML = html;
-    pixelize(root);
-    const modal = root.querySelector('.modal');
-    if (modal) modal.scrollTop = prevScroll;
+    if (!m) {
+      root.innerHTML = '';
+      this.shownModal = undefined;
+      this.lastModalHtml = '';
+      return;
+    }
+    const inner = `${m.dismissable ? '<button class="close-x" data-act="close">✕</button>' : ''}${m.render()}`;
+    const cls = `modal ${m.cls ?? ''}`;
+    const html = `${m.dismissable}|${cls}|${inner}`;
+    const same = m === this.shownModal;
+    // 같은 창이고 내용도 그대로면 건드리지 않는다 (등장 애니메이션이 다시 돌며 깜빡이지 않게)
+    if (same && html === this.lastModalHtml) return;
+    let overlay = root.querySelector<HTMLElement>(':scope > .overlay');
+    const prevModal = root.querySelector<HTMLElement>('.modal');
+    const prevScroll = prevModal?.scrollTop ?? 0;
+    if (!overlay) {
+      // 창이 하나도 없다가 처음 뜰 때만 배경이 서서히 어두워진다
+      root.innerHTML = '<div class="overlay"></div>';
+      overlay = root.querySelector<HTMLElement>('.overlay')!;
+    }
+    overlay.dataset.act = m.dismissable ? 'overlay' : '';
+    if (same && prevModal) {
+      // 같은 창의 내용만 바뀜: 창 틀은 그대로 두고 안쪽만 갈아끼운다
+      prevModal.className = cls;
+      prevModal.innerHTML = inner;
+      pixelize(prevModal);
+      prevModal.scrollTop = prevScroll;
+    } else {
+      // 다른 창으로 바뀜(겹친 창이 닫히거나 새 창이 뜸): 배경은 유지하고 창만 교체
+      const el = document.createElement('div');
+      el.className = cls;
+      el.innerHTML = inner;
+      overlay.replaceChildren(el);
+      pixelize(el);
+    }
+    this.shownModal = m;
     this.lastModalHtml = html;
   }
 
