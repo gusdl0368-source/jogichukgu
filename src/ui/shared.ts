@@ -182,7 +182,7 @@ function openSettings(app: App): void {
         : '<button class="btn small" data-act="cloud-on">켜기</button>'}</div>
         <p class="muted" style="margin:6px 0 0">켜면 다른 기기에서도 이어서 할 수 있어요. 끄면 이 브라우저에만 저장돼요.</p></div>
       <div class="panel"><h3>저장 코드</h3>
-        <p class="muted" style="margin:0 0 8px">다른 기기로 옮기거나 백업할 때 씁니다. 복사한 코드를 다른 기기의 ‘가져오기’에 붙여넣으세요.</p>
+        <p class="muted" style="margin:0 0 8px">다른 기기로 옮기거나 백업할 때 씁니다. 복사한 코드를 다른 기기의 ‘가져오기’에 붙여넣으세요. 브라우저 기록을 지우면 저장도 사라지니, 가끔 복사해 두면 안전해요.</p>
         <div class="btn-row"><button class="btn small" data-act="export-save">코드 복사</button><button class="btn small gray" data-act="import-open">가져오기</button></div>
       </div>
       <div class="btn-row"><button class="btn gray" data-act="tutorial">게임 방법</button><button class="btn gray" data-act="patch-notes">패치 노트</button></div>

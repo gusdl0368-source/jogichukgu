@@ -48,6 +48,61 @@ export function clearLocal(): void {
   } catch {
     // 무시
   }
+  void idb('readwrite', (st) => st.delete(SAVE_KEY));
+}
+
+// ───────── 백업: IndexedDB ─────────
+// 게임 모음 사이트처럼 여러 게임이 한 주소를 같이 쓰면, 다른 게임이 localStorage를 통째로 비울 수 있다.
+// 그래서 IndexedDB에 한 벌 더 저장해 두고, localStorage가 비어 있으면 여기서 되살린다.
+
+const BACKUP_DB = 'jogichukgu';
+const BACKUP_STORE = 'save';
+const BACKUP_MIN_INTERVAL_MS = 20_000;
+let lastBackup = 0;
+
+function idb<T>(mode: IDBTransactionMode, run: (st: IDBObjectStore) => IDBRequest<T>): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open(BACKUP_DB, 1);
+      open.onupgradeneeded = () => open.result.createObjectStore(BACKUP_STORE);
+      open.onerror = () => resolve(undefined);
+      open.onsuccess = () => {
+        try {
+          const db = open.result;
+          const req = run(db.transaction(BACKUP_STORE, mode).objectStore(BACKUP_STORE));
+          req.onsuccess = () => {
+            resolve(req.result);
+            db.close();
+          };
+          req.onerror = () => {
+            resolve(undefined);
+            db.close();
+          };
+        } catch {
+          resolve(undefined);
+        }
+      };
+    } catch {
+      resolve(undefined);
+    }
+  });
+}
+
+export function backupSave(state: GameState, force = false): void {
+  const now = Date.now();
+  if (!force && now - lastBackup < BACKUP_MIN_INTERVAL_MS) return;
+  lastBackup = now;
+  const data = serialize(state);
+  void idb('readwrite', (st) => st.put(data, SAVE_KEY));
+}
+
+/** 백업을 읽는다. 오래 걸리면(막힌 환경) 포기하고 null */
+export function loadBackup(timeoutMs = 800): Promise<GameState | null> {
+  const read = idb<unknown>('readonly', (st) => st.get(SAVE_KEY)).then((v) =>
+    typeof v === 'string' ? deserialize(v) : null,
+  );
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), timeoutMs));
+  return Promise.race([read, timeout]).catch(() => null);
 }
 
 /** 시간이 지나면 저절로 바뀌는 값은 빼고 비교한다 (안 바뀌었으면 쓰지 않으려고) */

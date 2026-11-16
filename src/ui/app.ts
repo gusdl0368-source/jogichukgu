@@ -1,6 +1,6 @@
 import { Game } from '../game/game';
 import { type GameState, newGameState } from '../game/state';
-import { CloudSave, clearLocal, saveLocal } from '../storage';
+import { CloudSave, backupSave, clearLocal, saveLocal } from '../storage';
 import { esc, fmt } from './dom';
 import { pxIcon } from './icons';
 import { pixelize } from './pixelEmoji';
@@ -410,6 +410,7 @@ export class App {
   save(force = false): void {
     this.lastSave = this.now();
     saveLocal(this.game.state);
+    backupSave(this.game.state, force);
     this.cloud.save(this.game.state, force);
   }
 
