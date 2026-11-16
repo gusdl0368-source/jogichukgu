@@ -2094,3 +2094,71 @@ img.pe {
 .grid3 > .btn { min-width: 0; padding-left: 4px; padding-right: 4px; }
 .new-tag { display: inline-block; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: #ffe08a; color: #1d2433; font-size: 9px; line-height: 14px; vertical-align: middle; }
 .trait-n { font-size: 12px; color: #2f6fed; }
+
+/* ═════════ 낮은 화면 (다른 사이트 안에 작게 끼워졌을 때, 가로로 눕힌 폰) ═════════ */
+@media (max-height: 640px) {
+  :root { --tab-h: 50px; }
+  .topbar { padding: 4px 8px 3px; }
+  .topbar .season { font-size: 13px; }
+  .topbar .season small { display: none; }
+  .chip { font-size: 12px; padding: 2px 7px 2px 4px; }
+  .icon-btn { width: 28px; height: 28px; }
+  .tab { font-size: 10px; gap: 0; }
+  .tab .ico { font-size: 20px; }
+  .tab .ico img.pe { height: 22px; }
+  .actions { padding: 6px 8px 7px; }
+  .sq-btn, .scout-btn { height: 46px; }
+  .guide { margin-bottom: 4px; padding: 4px 8px; }
+  .overlay { padding: 8px; }
+  .modal { padding: 12px 12px 14px; }
+  .page { padding-top: 8px; }
+  .title-logo { top: 6%; }
+  .title-logo h1 { font-size: min(clamp(54px, 17vw, 84px), 15vh); -webkit-text-stroke-width: 5px; }
+  .title-kicker { font-size: 13px; padding: 3px 12px; }
+  .title-start { bottom: 11%; font-size: 20px; }
+  .title-foot { bottom: 6px; font-size: 11px; }
+}
+@media (max-height: 640px) and (min-width: 620px) {
+  .title-logo h1 { font-size: min(78px, 15vh); }
+}
+@media (max-height: 480px) {
+  .guide .g-hint { display: none; }
+  .tut-step { padding: 6px 10px; }
+  .tut-lead { margin: 2px 0 8px; font-size: 14px; }
+  .title-kicker { display: none; }
+}
+
+/* 창이 너무 작을 때 안내 */
+.small-window {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #1b2440;
+  color: #fff;
+  text-align: center;
+  font-family: var(--font-ui);
+}
+.small-window.show { display: flex; }
+.small-window b { font-family: var(--font-display); font-weight: 400; font-size: 20px; }
+.small-window p { margin: 0; font-size: 13px; opacity: 0.85; }
+.small-window .row { display: flex; gap: 8px; }
+.small-window button {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 2px solid #0e1526;
+  background: var(--blue);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  box-shadow: 0 2px 0 #0e1526;
+}
+.small-window button.ghost { background: #3a4766; }
+@media (max-height: 640px) and (min-width: 620px) {
+  body::before { display: none; }
+}

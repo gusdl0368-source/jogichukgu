@@ -7,6 +7,7 @@ import { connectCloud, openEnding, openOffline, openTutorial } from './ui/shared
 import { setCrowd, setMusicEnabled, setSoundEnabled, setVibrateEnabled, updateMusic } from './ui/sound';
 import { startupPopups } from './ui/bm';
 import { showTitle } from './ui/title';
+import { watchSmallWindow } from './ui/smallWindow';
 
 const game = new Game(loadLocal() ?? newGameState(Date.now()));
 const now = Date.now();
@@ -20,6 +21,7 @@ setVibrateEnabled(() => game.state.settings.vibrate !== false);
 const app = new App(document.getElementById('app')!, game);
 app.render();
 app.save();
+watchSmallWindow();
 
 showTitle(() => {
   if (!game.state.seenTutorial) openTutorial(app);
