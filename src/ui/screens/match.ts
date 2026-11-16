@@ -76,7 +76,7 @@ export function lifecycle(app: App, now: number): void {
     } else openSeasonEnd(app, summary);
   } else if (app.state.stats.matches === 3 && !app.topModal()) {
     // 첫 경기 몇 판을 본 뒤에야 창단 패키지를 소개한다 (처음부터 결제창을 띄우지 않게)
-    setTimeout(() => { if (!app.topModal()) openOffer(app); }, 1600);
+    setTimeout(() => { if (!app.topModal()) openOffer(app, 'starter'); }, 1600);
   }
 }
 

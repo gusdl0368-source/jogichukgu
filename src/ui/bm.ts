@@ -140,15 +140,18 @@ function doSpin(app: App, kind: 'free' | 'ad' | 'gem'): void {
 
 // ───────── 한정 특가 ─────────
 
-export function openOffer(app: App): void {
-  const o = app.game.activeOffers(app.now())[0];
-  if (!o) return;
-  app.openModal({ id: 'offer', render: () => renderOffer(app), live: true, cls: 'offer-modal' });
+/** 특가 창. id를 주면 그 특가를(승격 직후엔 승격 패키지), 없으면 가장 먼저 생긴 특가를 보여 준다 */
+export function openOffer(app: App, id?: keyof typeof OFFERS): void {
+  const pick = (): ReturnType<typeof app.game.activeOffers>[number] | undefined => {
+    const list = app.game.activeOffers(app.now());
+    return (id && list.find((x) => x.id === id)) || list[0];
+  };
+  if (!pick()) return;
+  app.openModal({ id: 'offer', render: () => renderOffer(app, pick()), live: true, cls: 'offer-modal' });
 }
 
-function renderOffer(app: App): string {
+function renderOffer(app: App, o: ReturnType<typeof app.game.activeOffers>[number] | undefined): string {
   const now = app.now();
-  const o = app.game.activeOffers(now)[0];
   if (!o) return '';
   const def = OFFERS[o.id];
   return `<div class="offer">
@@ -165,8 +168,7 @@ function renderOffer(app: App): string {
 export function startupPopups(app: App): void {
   const now = app.now();
   if (!app.state.seenTutorial) return;
-  const offer = app.game.activeOffers(now)[0];
-  if (offer && offer.id === 'comeback') openOffer(app);
+  if (app.game.activeOffers(now).some((o) => o.id === 'comeback')) openOffer(app, 'comeback');
   if (app.game.attendanceAvailable(now)) openAttendance(app);
 }
 

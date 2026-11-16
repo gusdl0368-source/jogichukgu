@@ -88,7 +88,7 @@ function renderMembership(app: App): string {
 export function openSeasonEnd(app: App, s: MatchSummary): void {
   const e = s.seasonEnd!;
   // 승격 패키지는 시즌 종료 창 밑에 깔아 두고, 닫으면 보이게
-  if (e.promoted) openOffer(app);
+  if (e.promoted) openOffer(app, 'promotion');
   app.openModal({
     id: 'season',
     render: () => `<div class="ending">
