@@ -2095,8 +2095,10 @@ img.pe {
 .new-tag { display: inline-block; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: #ffe08a; color: #1d2433; font-size: 9px; line-height: 14px; vertical-align: middle; }
 .trait-n { font-size: 12px; color: #2f6fed; }
 
-/* ═════════ 낮은 화면 (다른 사이트 안에 작게 끼워졌을 때, 가로로 눕힌 폰) ═════════ */
-@media (max-height: 640px) {
+/* ═════════ 낮은 화면 (작은 폰, 다른 사이트 안에 작게 끼워졌을 때, 가로로 눕힌 폰) ═════════ */
+@media (max-height: 700px) {
+  /* 팀 파워는 점수판에, 라인별 수치는 전술실에 있으니 낮은 화면에선 줄을 아낀다 */
+  .linestats { display: none; }
   :root { --tab-h: 50px; }
   .topbar { padding: 4px 8px 3px; }
   .topbar .season { font-size: 13px; }
